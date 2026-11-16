@@ -128,10 +128,6 @@ h1, h2, h3, p { margin-top: 0; }
 .company-filter-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 38px; padding: 11px 15px; color: #456277; border: 1px solid #dceaf1; border-radius: 9px; background: #f0f8fc; font-size: 12px; }
 .company-filter-banner strong { color: #1c4965; }
 .company-filter-banner .text-button { flex: 0 0 auto; margin: 0; }
-@media (min-width: 761px) {
-  .topbar { position: sticky; top: 0; z-index: 20; }
-  .company-filter-banner { position: sticky; top: 74px; z-index: 19; }
-}
 .companies-page { padding: 42px 0 50px; }
 .companies-heading { margin-bottom: 22px; }
 .companies-heading h1 { margin: 9px 0 6px; color: #172a3d; font-family: "Segoe UI", Arial, sans-serif; font-size: 34px; letter-spacing: -1px; }
@@ -379,8 +375,8 @@ h1, h2, h3, p { margin-top: 0; }
   .mobile-nav-item { display: grid; justify-items: center; align-content: center; gap: 3px; color: #748597; border: 0; background: transparent; font-size: 9px; }
   .mobile-nav-item.active { color: var(--blue); font-weight: 700; }
   .flow-page { padding: 24px 0 35px; }
-  .company-filter-banner { position: sticky; top: 0; z-index: 4; align-items: start; margin: 12px 0 34px; font-size: 10px; }
-  .company-filter-banner .text-button { font-size: 9px;}
+  .company-filter-banner { align-items: start; margin: 12px 0 34px; font-size: 10px; }
+  .company-filter-banner .text-button { font-size: 9px; }
   .companies-page { padding: 28px 0 38px; }
   .companies-heading h1 { font-size: 29px; }
   .companies-heading p { font-size: 12px; line-height: 1.5; }
