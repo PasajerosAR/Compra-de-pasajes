@@ -82,6 +82,12 @@ h1, h2, h3, p { margin-top: 0; }
 .results-count { display: flex; justify-content: space-between; margin: 0 0 12px; color: #4a5e71; font-size: 12px; font-weight: 700; }
 .results-count span { color: #8997a5; font-size: 11px; font-weight: 500; }
 .trip-list { display: grid; gap: 11px; }
+.trip-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 5px; margin: 18px 0 8px; }
+.trip-pagination button { min-width: 34px; min-height: 34px; padding: 0 9px; color: #496174; border: 1px solid #dfe7ed; border-radius: 7px; background: #fff; font-size: 12px; font-weight: 700; }
+.trip-pagination button.active { color: #fff; border-color: var(--blue); background: var(--blue); }
+.trip-pagination button:disabled { opacity: .48; cursor: not-allowed; }
+.trip-pagination button:focus-visible { outline: 2px solid #2a86b5; outline-offset: 2px; }
+.trip-pagination span { padding: 0 3px; color: #7d8c99; }
 .trip-card { display: grid; grid-template-columns: 42px minmax(0, 1fr) 128px; gap: 15px; align-items: start; padding: 17px 17px 16px; border: 1px solid #e8edf1; border-radius: 13px; background: var(--surface); transition: border-color .15s, box-shadow .15s; }
 .trip-card:hover { border-color: #cadce7; box-shadow: 0 6px 18px rgba(28,51,74,.045); }
 .company-avatar { width: 40px; height: 40px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 12px; }
@@ -119,6 +125,26 @@ h1, h2, h3, p { margin-top: 0; }
 .aside-icon, .account-icon { width: 42px; height: 42px; display: grid; place-items: center; color: var(--blue); border-radius: 12px; background: #eaf4f9; }
 .aside-card h3 { margin: 14px 0 7px; font-family: "Segoe UI", Arial, sans-serif; font-size: 15px; letter-spacing: -.3px; }
 .aside-card p { margin: 0; color: #8190a0; font-size: 11px; line-height: 1.65; }
+.company-filter-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 38px; padding: 11px 15px; color: #456277; border: 1px solid #dceaf1; border-radius: 9px; background: #f0f8fc; font-size: 12px; }
+.company-filter-banner strong { color: #1c4965; }
+.company-filter-banner .text-button { flex: 0 0 auto; margin: 0; }
+.companies-page { padding: 42px 0 50px; }
+.companies-heading { margin-bottom: 22px; }
+.companies-heading h1 { margin: 9px 0 6px; color: #172a3d; font-family: "Segoe UI", Arial, sans-serif; font-size: 34px; letter-spacing: -1px; }
+.companies-heading p { margin: 0; color: #718294; font-size: 13px; }
+.company-search { max-width: 470px; height: 45px; display: flex; align-items: center; gap: 9px; margin-bottom: 24px; padding: 0 12px; color: var(--blue); border: 1px solid #dfe7ed; border-radius: 9px; background: white; }
+.company-search input { width: 100%; height: 100%; border: 0; outline: 0; color: #263b4e; background: transparent; font-size: 13px; }
+.company-directory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+.company-directory-card { overflow: hidden; border: 1px solid #e6ecf0; border-radius: 13px; background: white; box-shadow: var(--shadow); }
+.company-card-link { width: 100%; display: grid; justify-items: start; gap: 10px; padding: 13px; color: #31485b; border: 0; background: transparent; text-align: left; }
+.company-card-link:hover strong { color: var(--blue); }
+.company-card-link > strong { font-size: 14px; }
+.company-card-link > span:last-child { display: inline-flex; align-items: center; gap: 5px; color: var(--blue); font-size: 11px; font-weight: 700; }
+.company-card-logo { position: relative; width: 100%; height: 132px; display: grid; place-items: center; overflow: hidden; color: var(--blue); border-radius: 9px; background: linear-gradient(135deg, #eaf4f9, #f8fbfd); }
+.company-card-logo > span { font-family: "Segoe UI", Arial, sans-serif; font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+.company-card-logo img { position: absolute; inset: 0; width: 100%; height: 100%; padding: 8px; object-fit: contain; background: white; }
+.company-share-button { width: calc(100% - 26px); min-height: 34px; margin: 0 13px 13px; color: #607789; border: 1px solid #dfe7ed; border-radius: 7px; background: #fff; font-size: 10px; font-weight: 700; }
+.company-share-button:hover { color: var(--blue); background: #f7fbfd; }
 .text-button { display: inline-flex; align-items: center; gap: 5px; margin: 13px 0 17px; padding: 0; color: var(--blue); border: 0; background: transparent; font-size: 11px; font-weight: 700; }
 .aside-divider { height: 1px; background: #edf0f3; }
 .aside-note { display: flex; gap: 8px; margin-top: 14px; color: #718395; font-size: 10px; line-height: 1.5; }
@@ -140,6 +166,8 @@ h1, h2, h3, p { margin-top: 0; }
 .stop-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; padding: 13px; border-radius: 9px; background: #f7fafc; }
 .passenger-form-block + .passenger-form-block { margin-top: 17px; padding-top: 16px; border-top: 1px solid #edf0f3; }
 .passenger-form-block h3 { margin: 0 0 11px; color: #536a7d; font-size: 11px; font-weight: 700; }
+.passenger-form-hint { margin: 10px 0; font-size: 11px; }
+.profile-edit-hint { margin: 10px 0 0; font-size: 10px; }
 .form-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .input-field { display: grid; gap: 7px; color: #44586b; font-size: 11px; font-weight: 700; }
 .input-field input, .input-field select { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #dfe6eb; border-radius: 8px; outline: 0; color: #263b4e; background: #fff; font-size: 12px; font-weight: 500; }
@@ -168,14 +196,20 @@ h1, h2, h3, p { margin-top: 0; }
 .seat-floor-tabs button { min-height: 34px; padding: 0 11px; color: #657b8e; border: 1px solid #dfe7ed; border-radius: 7px; background: #fff; font-size: 10px; font-weight: 700; }
 .seat-floor-tabs button.active { color: #fff; border-color: var(--blue); background: var(--blue); }
 .seat-layout-name { display: flex; align-items: center; gap: 6px; margin: 14px 0 8px; color: #667d8f; font-size: 10px; font-weight: 700; }
-.seat-plan { max-width: 360px; margin: 0 auto; padding: 12px; border: 1px solid #e2e8ed; border-radius: 12px; background: #fff; }
+.seat-plan { max-width: 100%; margin: 0 auto; padding: 12px; overflow-x: auto; border: 1px solid #e2e8ed; border-radius: 12px; background: #fff; }
 .seat-front { width: 52%; margin: 0 auto 14px; padding: 5px; color: #8393a1; border: 1px solid #e6ebef; border-radius: 7px 7px 12px 12px; background: #f7f9fa; font-size: 8px; text-align: center; }
 .seat-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) 22px repeat(2, minmax(0, 1fr)); gap: 7px; margin: 7px 0; }
+.live-seat-row { min-width: 100%; }
 .seat-option { min-width: 0; min-height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 3px; color: #3c6177; border: 1px solid #bfd4e0; border-radius: 8px 8px 5px 5px; background: #edf6fa; }
 .seat-option strong { font-size: 10px; line-height: 1; }
+.seat-option-price { color: #516d80; font-size: 7px; font-weight: 700; line-height: 1; white-space: nowrap; }
 .seat-option.seat-premium, .seat-option.seat-cama { color: #805a24; border-color: #e6d3ac; background: #fff6e5; }
 .seat-option.selected { color: #fff; border-color: #12618e; background: #12618e; box-shadow: 0 0 0 2px #cde4f0; }
+.seat-option.selected .seat-option-price { color: #fff; }
 .seat-option.occupied { color: #a4afb8; border-color: #e5e9ec; background: #eceff1; cursor: not-allowed; }
+.seat-cell-placeholder { min-width: 0; display: grid; place-items: center; overflow: hidden; color: #81909c; border: 1px dashed #e2e8ed; border-radius: 5px; background: #f7f9fa; font-size: 7px; text-align: center; }
+.seat-cell-aisle, .seat-cell-empty { border-color: transparent; background: transparent; }
+.seat-cell-door, .seat-cell-stairs, .seat-cell-toilet, .seat-cell-trunk, .seat-cell-driver { min-height: 46px; padding: 2px; }
 .seat-aisle { grid-column: 3; }
 .seat-legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 12px; color: #718294; font-size: 9px; }
 .seat-legend span { display: inline-flex; align-items: center; gap: 5px; }
@@ -337,10 +371,21 @@ h1, h2, h3, p { margin-top: 0; }
   .footer > div { display: grid; gap: 3px; }
   .footer-demo { max-width: 165px; line-height: 1.4; }
   .footer-demo svg { flex: 0 0 auto; }
-  .mobile-nav { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; height: 62px; display: grid; grid-template-columns: repeat(3, 1fr); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid #e7ebef; background: rgba(255,255,255,.97); box-shadow: 0 -5px 20px rgba(27,48,66,.05); }
+  .mobile-nav { position: fixed; z-index: 5; right: 0; bottom: 0; left: 0; height: 62px; display: grid; grid-template-columns: repeat(4, 1fr); padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid #e7ebef; background: rgba(255,255,255,.97); box-shadow: 0 -5px 20px rgba(27,48,66,.05); }
   .mobile-nav-item { display: grid; justify-items: center; align-content: center; gap: 3px; color: #748597; border: 0; background: transparent; font-size: 9px; }
   .mobile-nav-item.active { color: var(--blue); font-weight: 700; }
   .flow-page { padding: 24px 0 35px; }
+  .company-filter-banner { align-items: start; margin: 12px 0 34px; font-size: 10px; }
+  .company-filter-banner .text-button { font-size: 9px; }
+  .companies-page { padding: 28px 0 38px; }
+  .companies-heading h1 { font-size: 29px; }
+  .companies-heading p { font-size: 12px; line-height: 1.5; }
+  .company-directory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .company-card-link { gap: 8px; padding: 9px; }
+  .company-card-link > strong { font-size: 12px; }
+  .company-card-logo { height: 105px; }
+  .company-card-logo > span { font-size: 28px; }
+  .company-share-button { width: calc(100% - 18px); min-height: 32px; margin: 0 9px 9px; padding: 0 4px; font-size: 9px; }
   .flow-heading h1 { font-size: 29px; }
   .flow-heading p { font-size: 12px; line-height: 1.55; }
   .checkout-grid { grid-template-columns: 1fr; }
@@ -386,7 +431,33 @@ h1, h2, h3, p { margin-top: 0; }
 
 @media print {
   body { min-width: auto; background: white; }
-  .app.is-printing * { visibility: hidden !important; }
-  .app.is-printing .printable-ticket, .app.is-printing .printable-ticket * { visibility: visible !important; }
-  .app.is-printing .printable-ticket { position: absolute; top: 0; left: 0; width: 100%; max-width: 760px; margin: 0; border: 1px solid #bbb; box-shadow: none; }
+  .topbar, .footer, .mobile-nav, .ticket-actions, .print-button { display: none !important; }
+  main { max-width: none; margin: 0; padding: 0; }
+  .printable-ticket { width: 100%; max-width: 760px; margin: 0 auto 16px; border: 1px solid #bbb; box-shadow: none; break-inside: avoid; }
+}
+
+.setup-page { max-width: 720px; margin: 70px auto; }
+.notice.error { color: #8d4343; border-color: #f0d7d7; background: #fff5f5; }
+.notice.success { color: #31775c; border-color: #d7ecdf; background: #f1faf4; }
+.field-control select { appearance: auto; }
+.loading-state { padding: 16px; color: #718294; font-size: 12px; }
+.empty-search, .empty-state { padding: 30px 20px; color: #758698; border: 1px dashed #d8e1e7; border-radius: 12px; background: #fbfcfd; text-align: center; }
+.empty-search > svg { color: var(--blue); }
+.empty-search h3, .empty-state h2 { margin: 9px 0 5px; color: #344a5d; font-size: 15px; }
+.empty-search p, .empty-state p { margin: 0 0 6px; font-size: 11px; line-height: 1.5; }
+.ticket-list { display: grid; gap: 16px; }
+.ticket-status.cancelled-status { color: #8d4343; background: #fff1f1; }
+.ticket-status.cancelled-status > span { background: #cc6868; }
+.account-summary { max-width: 730px; margin: 45px auto; padding: 26px; }
+.account-summary h1 { margin: 12px 0 5px; color: #21374a; font-size: 29px; }
+.account-summary > p { color: #7a8a99; font-size: 13px; }
+.account-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.live-map { width: 100%; height: 420px; margin: 16px 0; border: 1px solid #e1e8ed; border-radius: 12px; background: #edf2f5; }
+.vehicle-marker { display: grid; place-items: center; color: white; border: 3px solid white; border-radius: 50%; background: var(--blue); box-shadow: 0 2px 9px rgba(18, 97, 142, .35); font-size: 10px; }
+.live-seat-row { margin: 7px 0; }
+
+@media (max-width: 760px) {
+  .account-summary { margin: 28px auto; padding: 18px; }
+  .account-actions { display: grid; }
+  .live-map { height: min(60vh, 390px); }
 }

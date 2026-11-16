@@ -1,40 +1,42 @@
-# PasajerosAr
+# Pasajeros.ar
 
-Proyecto web independiente para la experiencia de compra y consulta de pasajes de pasajeros. No modifica ni comparte el repositorio de `transporte`.
+Sitio público para pasajeros. El frontend vive en este proyecto y se conecta al mismo backend Supabase que utiliza `transporte`; no debe incluir claves privadas.
 
-## Ejecutar
+## Ejecutar localmente
+
+En PowerShell:
 
 ```powershell
 npm install
+Copy-Item .env.example .env.local
+```
+
+Completar `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en `.env.local`, luego:
+
+```powershell
 npm run dev
 ```
 
-Para validar la compilación de producción:
+Validar la compilación de producción con `npm run build`.
 
-```powershell
-npm run build
-```
+## Funciones conectadas
 
-## Estado actual
+- Búsqueda pública de salidas, tarifas y disponibilidad por tramo.
+- Consulta de paradas y asientos del plano real, incluidos piso, fila y columna.
+- Registro e inicio de sesión de pasajeros con nombre, apellido, DNI, fecha de nacimiento y correo.
+- “Mis pasajes” consulta los pasajes comerciales asociados a la cuenta por DNI y correo.
+- Visualización del QR y opción de imprimir o guardar el pasaje como PDF.
+- Seguimiento de ubicación durante un viaje activo, con actualización cada 15 segundos.
+- Búsqueda escribible de localidades (un nombre único se reconoce sin elegir una sugerencia), directorio de empresas con logos, enlaces compartibles y un listado paginado de las próximas salidas de cada empresa.
 
-La aplicación es un prototipo navegable de frontend para pasajeros. Los horarios, categorías, disponibilidad y precios son datos de demostración. La búsqueda, el formulario, la vista de pasaje, la cuenta y el seguimiento no se conectan a servicios reales. Se puede elegir asiento por piso y generar un QR local de prueba con los datos ingresados y el asiento elegido; el QR contiene el contenido sin cifrar, no es válido para viajar y solo debe probarse con datos ficticios. El formulario no envía ni guarda datos y no procesa pagos. La consulta manual por DNI no pertenece a este sitio.
+El portal permite comprar hasta cuatro pasajes en una sola operación de prueba. El backend reserva todos los asientos por 10 minutos; el retorno del navegador no confirma el pago y los pasajes solo aparecen en “Mis pasajes” después de que el webhook valide el estado directamente con Mercado Pago. Si el pago queda pendiente o la reserva vence, no se emiten los pasajes.
 
-## Arquitectura acordada
+## Backend y despliegue
 
-El código de este proyecto es independiente, pero el backend previsto es el Supabase que ya utiliza `transporte`. La integración todavía no está activada. El esquema actual contiene empresas, recorridos, paradas, salidas y viajes; no contiene tablas/migraciones de venta de pasajes, tarifas ni cuentas de pasajeros. Las políticas actuales son para personal autenticado, por lo que la web no debe leer esas tablas directamente como usuario anónimo.
+Aplicar en orden todas las migraciones de `D:\00 Pasajeros.ar\transporte\supabase\migrations` en el proyecto Supabase compartido. Las migraciones `0018` a `0020` agregan ventas, cuentas de pasajeros y las funciones públicas de consulta que usa este portal. La `0021` agrega a `public_trip_seats` la información de piso, fila y columna del plano. La `0022` agrega el checkout de prueba, las reservas temporales y la confirmación segura por webhook. La `0023` corrige consultas ambiguas en el portal y el estado del checkout. La `0024` elimina viajes duplicados por múltiples paradas en una localidad, filtra las paradas del viaje por localidad y devuelve el plano completo con sus coordenadas. La `0027` agrega la consulta de empresas, el perfil editable del titular y el filtro de servicios por empresa; la `0028` habilita cargar logos a los colaboradores de plataforma con permiso de edición; la `0029` agrega el listado paginado de salidas de los próximos 180 días y sus filtros por empresa.
 
-El administrador general conserva la gestión del catálogo de recorridos y paradas. El admin de empresa ya permite crear planos de hasta dos pisos y asignarlos a una unidad. Se agregó una categoría configurable por asiento (Común, Semicama, Cama, Premium o Cama premium) para representar, por ejemplo, una planta alta semicama y una baja cama/premium, además del tipo Minibús en la flota. La cantidad de pisos se deriva del plano asignado. Las unidades asignadas a un plano se reasignan antes de eliminarlo; los planos que referencian viajes se conservan para mantener el historial. Cada administrador de empresa deberá cargar también tarifas por salida/servicio, tramo y categoría del asiento. La siguiente fase requiere funciones de servidor para exponer servicios, tarifas y disponibilidad, procesar Mercado Pago y emitir/validar pasajes. La validación manual por DNI se ubicó en el lector del conductor durante un viaje; su búsqueda y registro requieren las RPC seguras `lookup_ticket_by_dni` y `board_ticket_by_dni`, que todavía no existen en las migraciones.
+El checkout requiere desplegar las Edge Functions `mp-oauth-start`, `mp-company-connection-status`, `mp-disconnect-company`, `create-passenger-checkout`, `mercadopago-oauth-callback` y `mercadopago-webhook`, además de los secretos de Mercado Pago y las URL HTTPS descritos en el README del backend. La empresa conecta su cuenta vendedora de prueba desde el panel; no se deben poner secretos de Mercado Pago en este proyecto ni en `.env.local`.
 
-## Integraciones necesarias antes de operar
+Configurar en Supabase Auth la URL local y la URL pública como direcciones permitidas para confirmación de correo. El sitio está preparado para publicarse bajo la ruta `/Compra-de-pasajes/` configurada en `vite.config.js`.
 
-- API autenticada para consultar disponibilidad, servicios y paradas; debe resolver el aislamiento multiempresa en el servidor.
-- Procesador de pagos y emisión del pasaje solo tras confirmación verificada del pago.
-- Mercado Pago debe confirmarse mediante notificación autenticada del servidor. Sus credenciales no deben estar en el frontend.
-- Panel de empresa para configurar tarifas por salida y par de paradas, y consultar ventas/pasajeros.
-- Las migraciones `transporte/supabase/migrations/0009_seat_classes_and_vehicle_kinds.sql`, `0010_delete_seat_layout.sql` y `0011_service_delete_and_date.sql` deben aplicarse para usar categorías de asiento, unidades Minibús, eliminación segura de disposiciones/servicios y selección de fecha de salida. No se aplicaron a ninguna base.
-- QR real único y protegido que vincule los datos registrados del pasajero (nombre, apellido, DNI, fecha de nacimiento y correo), servicio, tramo y asiento sin exponerlos como texto legible; solo se validará desde el flujo autorizado del conductor. El QR de este prototipo es una simulación local en texto claro y no implementa esa protección.
-- Cuenta de pasajeros, envío de pasajes por correo y generación de PDF con la información confirmada del servicio, paradas y datos registrados del pasajero.
-- Seguimiento GPS y respaldo de búsqueda por DNI dentro de un viaje activo, limitado a conductores autenticados y sus servicios, con auditoría de consultas.
-- Política de privacidad, retención mínima de datos y flujos definidos para cancelaciones/reembolsos.
-
-El proyecto usa su propio manifiesto y estructura. La conexión futura con el sistema operativo existente debe hacerse mediante contratos de API autenticados; no se comparten credenciales desde el frontend.
+La clave `anon` se usa desde el frontend con las políticas y RPC del backend. **Nunca** agregar `SUPABASE_SERVICE_ROLE_KEY`, tokens de Mercado Pago ni claves de Resend a `.env.local` o a los archivos del frontend. El envío del PDF por correo se configura únicamente como secreto de Edge Functions en el proyecto `transporte`.
