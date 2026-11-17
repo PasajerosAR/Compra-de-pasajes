@@ -280,7 +280,24 @@ function ConnectedApp() {
       if (error) setCheckoutError(errorText(error));
       else setSeatOptions(data ?? []);
     });
-    return () => { active = false; };
+    // los asientos se actualizan solos: ventas de la taquilla, de la ventanilla u otras compras
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      void supabase.rpc('public_trip_seats', {
+        p_trip: selectedTrip.trip_id,
+        p_from_stop: boardingStop,
+        p_to_stop: alightingStop
+      }).then(({ data, error }) => {
+        if (!active || error || !data) return;
+        setSeatOptions(data);
+        setSelectedSeats((current) => {
+          const still = current.filter((seat) => data.some((item) => item.cell_id === seat.cell_id && item.available));
+          if (still.length !== current.length) setCheckoutError('Algún asiento que elegiste se acaba de ocupar. Elegí otro.');
+          return still.length === current.length ? current : still;
+        });
+      });
+    }, 10_000);
+    return () => { active = false; window.clearInterval(timer); };
   }, [selectedTrip, boardingStop, alightingStop]);
 
   const sortedTrips = useMemo(() => {
