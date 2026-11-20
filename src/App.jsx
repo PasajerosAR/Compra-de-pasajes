@@ -61,6 +61,7 @@ function Icon({ name, size = 18 }) {
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M16 3v4M8 3v4M3 11h18" /></>,
     info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8h.01" /></>,
     pin: <><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></>,
+    track: <><circle cx="12" cy="12" r="3" /><circle cx="12" cy="12" r="8" /><path d="M12 2v3m0 14v3M2 12h3m14 0h3" /></>,
     search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
     seat: <><path d="M7 18v-5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v5" /><path d="M5 18h14v3H5zM8 11V7a2 2 0 1 1 4 0v4" /></>,
     shield: <><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" /><path d="m9 12 2 2 4-4" /></>,
@@ -119,6 +120,7 @@ function ConnectedApp() {
   const [accountMode, setAccountMode] = useState('login');
   const [authMessage, setAuthMessage] = useState('');
   const [trackingTrip, setTrackingTrip] = useState(null);
+  const [trackingBack, setTrackingBack] = useState('tickets');
   const [checkoutOrderId, setCheckoutOrderId] = useState('');
   const [paymentBusy, setPaymentBusy] = useState(false);
 
@@ -459,8 +461,9 @@ function ConnectedApp() {
     setSelectedSeats([]);
   };
 
-  const startTracking = (tripId) => {
+  const startTracking = (tripId, back = 'tickets') => {
     setTrackingTrip(tripId);
+    setTrackingBack(back);
     setSection('tracking');
   };
 
@@ -556,7 +559,7 @@ function ConnectedApp() {
             onDestination={setDestinationFromPlace}
             onDestinationInput={(value) => typePlace(value, setDestinationInput, setDestination)}
             onClearCompany={clearCompany} onDate={setDate} onPassengerCount={setPassengerCount}
-            onSort={setSortBy} onSearch={search} onPage={changeCompanyPage} onChoose={(trip) => {
+            onSort={setSortBy} onSearch={search} onPage={changeCompanyPage} onTrack={(tripId) => startTracking(tripId, 'search')} onChoose={(trip) => {
               const originPlaceId = trip.origin_place_id ?? origin;
               const destinationPlaceId = trip.destination_place_id ?? destination;
               setSelectedTrip({
@@ -607,7 +610,7 @@ function ConnectedApp() {
             }} />
         )}
         {section === 'tickets' && session && <TicketsPage onTrack={startTracking} />}
-        {section === 'tracking' && trackingTrip && <TrackingPage tripId={trackingTrip} onBack={() => setSection('tickets')} />}
+        {section === 'tracking' && trackingTrip && <TrackingPage tripId={trackingTrip} backLabel={trackingBack === 'search' ? 'Volver a los resultados' : 'Volver a mis pasajes'} onBack={() => setSection(trackingBack)} />}
         {section === 'checkoutResult' && <CheckoutResultPage
           orderId={checkoutOrderId}
           onTickets={() => { setSection(session ? 'tickets' : 'account'); setAccountMode('login'); }}
@@ -632,7 +635,7 @@ function ConnectedApp() {
 function SearchResults(props) {
   const { places, placesLoading, origin, originInput, destination, destinationInput, date, passengerCount,
     sortBy, trips, busy, error, company, totalTrips, page, totalPages, onOrigin, onOriginInput,
-    onDestination, onDestinationInput, onDate, onPassengerCount, onSort, onSearch, onChoose,
+    onDestination, onDestinationInput, onDate, onPassengerCount, onSort, onSearch, onChoose, onTrack,
     onClearCompany, onPage } = props;
   const originName = places.find((place) => place.place_id === origin)?.place_name;
   const destinationName = places.find((place) => place.place_id === destination)?.place_name;
@@ -670,7 +673,7 @@ function SearchResults(props) {
         <div className="results-count">{resultCount} {company ? 'viajes' : 'servicios'} encontrados <span>{company && resultCount > 0 ? `Mostrando ${firstResult}–${lastResult} de ${resultCount}` : 'Precios por pasajero'}</span></div>
         {busy && <p className="loading-state">Buscando salidas disponibles...</p>}
         {!busy && trips.length === 0 && <div className="empty-search"><Icon name="search" size={24} /><h3>{company ? 'No encontramos salidas' : 'Encontrá tu próximo viaje'}</h3><p>{company ? 'Probá cambiando los filtros o revisá las próximas fechas disponibles.' : 'Elegí origen, destino y fecha para consultar los servicios disponibles.'}</p></div>}
-        <div className="trip-list">{trips.map((trip) => <TripCard key={trip.trip_id} trip={trip} onChoose={onChoose} />)}</div>
+        <div className="trip-list">{trips.map((trip) => <TripCard key={trip.trip_id} trip={trip} onChoose={onChoose} onTrack={onTrack} />)}</div>
         {company && <Pagination page={page} totalPages={totalPages} onPage={onPage} disabled={busy} />}
         <div className="trust-row"><span><Icon name="shield" size={16} /> Consulta directa al sistema de viajes</span><span><Icon name="ticket" size={16} /> Pasajes vinculados a tu cuenta</span><span><Icon name="info" size={16} /> Checkout seguro en modo de prueba</span></div>
       </section>
@@ -743,7 +746,7 @@ function CompaniesPage({ companies, loading, error, search, onSearch, onSelect, 
   </section>;
 }
 
-function TripCard({ trip, onChoose }) {
+function TripCard({ trip, onChoose, onTrack }) {
   return <article className="trip-card">
     <div className="company-avatar blue"><Icon name="bus" size={19} /></div>
     <div className="trip-main">
@@ -751,7 +754,7 @@ function TripCard({ trip, onChoose }) {
       <div className="trip-times"><div className="time-stop"><strong>{formatTime(trip.scheduled_departure)}</strong><span>{trip.from_stop_name}</span></div><div className="trip-duration"><span>{formatDate(trip.service_date)}</span><div><i /><span>Salida</span><i /></div></div><div className="time-stop align-right"><strong>{trip.to_stop_name}</strong><span>Destino</span></div></div>
       <div className="amenities"><span><Icon name="pin" size={14} />{trip.route_name}</span><span><Icon name="calendar" size={14} />{formatDate(trip.service_date)}</span></div>
     </div>
-    <div className="trip-price"><span className="price-label">Desde</span><strong>{formatPrice(trip.price)}</strong><button className="button button-primary choose-button" onClick={() => onChoose(trip)}>Ver asientos <Icon name="arrow" size={16} /></button></div>
+    <div className="trip-price"><span className="price-label">Desde</span><strong>{formatPrice(trip.price)}</strong><div className="trip-actions"><button className="button button-primary choose-button" onClick={() => onChoose(trip)}>Ver asientos <Icon name="arrow" size={16} /></button><button className="button button-secondary track-button" onClick={() => onTrack(trip.trip_id)} aria-label={`Seguir en vivo el servicio ${trip.service_code}`} title="Seguir la unidad en vivo"><Icon name="track" size={18} /></button></div></div>
   </article>;
 }
 
@@ -1063,49 +1066,105 @@ function TicketCard({ ticket, onTrack }) {
     <div className="ticket-route"><div><span>FECHA Y SALIDA</span><strong>{formatTime(ticket.scheduled_departure)}</strong><small>{formatDate(ticket.service_date)}</small></div><div className="ticket-route-line"><i /><Icon name="arrow" size={19} /><i /></div><div className="ticket-destination"><span>RECORRIDO</span><strong>{ticket.route_name}</strong><small>{ticket.company_name}</small></div></div>
     <div className="ticket-stop-details"><span><small>PARADA DE ASCENSO</small><strong>{ticket.from_stop}</strong></span><span><small>PARADA DE DESCENSO</small><strong>{ticket.to_stop}</strong></span></div>
     <div className="ticket-details"><div className="qr-placeholder">{qr ? <img src={qr} alt={`Código QR del pasaje de servicio ${ticket.service_code}`} /> : <span>Generando QR…</span>}<small>Presentá este código al conductor</small></div><div className="passenger-details"><span>Pasajero</span><strong>{ticket.passenger_name}</strong><span>DNI</span><strong>{ticket.passenger_dni}</strong><span>Correo</span><strong>{ticket.passenger_email}</strong><span>Asiento</span><strong>{ticket.seat_label ?? 'Sin asignar'}</strong><span>Importe</span><strong>{formatPrice(ticket.price)}</strong></div></div>
-    <div className="ticket-actions"><button className="button button-primary" onClick={() => window.print()}><Icon name="ticket" size={17} /> Imprimir / guardar PDF</button>{ticket.trip_status === 'in_progress' && ticket.ticket_status !== 'cancelled' && <button className="button button-secondary" onClick={() => onTrack(ticket.trip_id)}>Seguir unidad</button>}</div>
+    <div className="ticket-actions"><button className="button button-primary" onClick={() => window.print()}><Icon name="ticket" size={17} /> Imprimir / guardar PDF</button>{['scheduled', 'in_progress'].includes(ticket.trip_status) && ticket.ticket_status !== 'cancelled' && <button className="button button-secondary" onClick={() => onTrack(ticket.trip_id)}><Icon name="track" size={17} /> Seguir unidad</button>}</div>
   </article>;
 }
 
-function TrackingPage({ tripId, onBack }) {
-  const [position, setPosition] = useState(null);
+function TrackingPage({ tripId, onBack, backLabel }) {
+  const [data, setData] = useState(undefined);
   const [error, setError] = useState('');
-  const [updated, setUpdated] = useState('');
+  const [selected, setSelected] = useState(null);
   useEffect(() => {
     let active = true;
+    setData(undefined);
     const refresh = async () => {
-      const { data, error: resultError } = await supabase.rpc('public_trip_live_position', { p_trip: tripId });
+      const { data: result, error: resultError } = await supabase.rpc('trip_tracking', { p_trip: tripId });
       if (!active) return;
       if (resultError) { setError(errorText(resultError)); return; }
-      setPosition(data?.[0] ?? null);
-      setUpdated(new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      setData(result ?? null);
       setError('');
     };
     void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 15000);
+    const timer = window.setInterval(() => { void refresh(); }, 10000);
     return () => { active = false; window.clearInterval(timer); };
   }, [tripId]);
-  return <section className="flow-page tracking-page"><button className="back-button" onClick={onBack}><Icon name="back" size={18} /> Volver a mis pasajes</button><span className="eyebrow muted-eyebrow">SEGUIMIENTO EN VIVO</span><h1>{position ? `Servicio ${position.service_code}` : 'Ubicación de la unidad'}</h1>{error && <Notice kind="error">{error}</Notice>}{!position && !error && <Notice kind="warning">La unidad todavía no compartió una ubicación en vivo para este viaje.</Notice>}{position && <><p className="muted">{position.company_name} · {position.route_name} · Actualizado {updated}</p>{position.latitude != null && position.longitude != null ? <TrackingMap position={position} /> : <Notice kind="warning">La ubicación GPS todavía no está disponible.</Notice>}</>}</section>;
+  const stops = data?.stops ?? [];
+  const mine = data?.my_stops ?? [];
+  const delay = data?.delay_minutes;
+  const stopRole = (id) => [mine.some((m) => m.from_stop_id === id) && 'Tu subida', mine.some((m) => m.to_stop_id === id) && 'Tu bajada'].filter(Boolean).join(' · ');
+  const nextStop = stops.find((stop) => !stop.passed);
+  return <section className="flow-page tracking-page">
+    <button className="back-button" onClick={onBack}><Icon name="back" size={18} /> {backLabel}</button>
+    <span className="eyebrow muted-eyebrow">SEGUIMIENTO EN VIVO</span>
+    {error && <Notice kind="error">{error}</Notice>}
+    {data === undefined && !error && <p className="loading-state">Cargando seguimiento...</p>}
+    {data === null && <Notice kind="warning">El seguimiento de este viaje no está disponible. Si ya compraste el pasaje, ingresá a tu cuenta y abrilo desde "Mis pasajes".</Notice>}
+    {data && <>
+      <h1>{data.origin_name} <span aria-hidden="true">→</span> {data.destination_name}</h1>
+      <p className="muted">{data.company_name} · Servicio {data.service_code} · Salida {formatTime(data.scheduled_departure)}</p>
+      {data.signal
+        ? <Notice kind="info">{delay == null ? 'Unidad en ruta.' : delay > 1 ? `La unidad va ${delay} min atrasada respecto del horario.` : delay < -1 ? `La unidad va ${-delay} min adelantada respecto del horario.` : 'La unidad va en hora.'}{nextStop?.eta_at ? ` Próxima parada: ${nextStop.name}, aprox. ${formatTime(nextStop.eta_at)}.` : ''}</Notice>
+        : <Notice kind="warning">Todavía sin señal de la unidad. Cuando salga a ruta la vas a ver en el mapa.</Notice>}
+      <TrackingMap data={data} selectedId={selected} onSelect={setSelected} />
+      <h2 className="tracking-stops-title">Paradas</h2>
+      <p className="muted">Tocá una parada para ver la hora aproximada de llegada.</p>
+      <ol className="tracking-stops">{stops.map((stop) => {
+        const open = selected === stop.id;
+        const role = stopRole(stop.id);
+        return <li key={stop.id} className={`${stop.passed ? 'is-passed' : ''}${open ? ' is-open' : ''}`}>
+          <button type="button" onClick={() => setSelected(open ? null : stop.id)} aria-expanded={open}>
+            <span className="stop-dot" aria-hidden="true" /><span className="stop-name">{stop.name}{role && <small>{role}</small>}</span>
+            <span className="stop-time">{stop.passed ? 'Ya pasó' : stop.eta_at ? formatTime(stop.eta_at) : ''}</span>
+          </button>
+          {open && <div className="stop-detail">{stop.passed ? 'La unidad ya pasó por esta parada.' : stop.eta_at ? `Llegada aproximada: ${formatTime(stop.eta_at)}${stop.scheduled_at && Math.abs(new Date(stop.eta_at) - new Date(stop.scheduled_at)) > 90000 ? ` (programada ${formatTime(stop.scheduled_at)})` : ''}` : 'Sin horario estimado para esta parada.'}</div>}
+        </li>;
+      })}</ol>
+    </>}
+  </section>;
 }
 
-function TrackingMap({ position }) {
+function TrackingMap({ data, selectedId, onSelect }) {
   const elementRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const stopLayerRef = useRef(null);
+  const fittedRef = useRef(null);
+  const position = data.position;
   useEffect(() => {
-    if (!elementRef.current || position.latitude == null || position.longitude == null) return undefined;
-    const map = L.map(elementRef.current).setView([position.latitude, position.longitude], 13);
+    if (!elementRef.current) return undefined;
+    const map = L.map(elementRef.current).setView([-31.7, -60.5], 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-    if (position.route_path?.length) L.polyline(position.route_path.map(([lat, lng]) => [lat, lng]), { color: '#12618e', weight: 5, opacity: 0.75 }).addTo(map);
-    const icon = L.divIcon({ className: 'vehicle-marker', html: '<span>●</span>', iconSize: [24, 24], iconAnchor: [12, 12] });
-    markerRef.current = L.marker([position.latitude, position.longitude], { icon }).addTo(map);
+    stopLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; markerRef.current = null; };
-  }, [position.trip_id, Boolean(position.latitude), Boolean(position.longitude)]);
+    return () => { map.remove(); mapRef.current = null; markerRef.current = null; stopLayerRef.current = null; fittedRef.current = null; };
+  }, [data.trip_id]);
   useEffect(() => {
-    if (!mapRef.current || !markerRef.current || position.latitude == null || position.longitude == null) return;
-    markerRef.current.setLatLng([position.latitude, position.longitude]);
-    mapRef.current.panTo([position.latitude, position.longitude], { animate: true });
-  }, [position.latitude, position.longitude]);
-  return <div className="live-map" ref={elementRef} role="img" aria-label={`Ubicación de la unidad, precisión ${position.accuracy_m ?? 'desconocida'} metros`} />;
+    const map = mapRef.current;
+    if (!map || !stopLayerRef.current) return;
+    stopLayerRef.current.clearLayers();
+    const points = [];
+    if (data.route_path?.length) {
+      L.polyline(data.route_path.map(([lat, lng]) => [lat, lng]), { color: '#12618e', weight: 5, opacity: 0.75 }).addTo(stopLayerRef.current);
+      data.route_path.forEach(([lat, lng]) => points.push([lat, lng]));
+    }
+    data.stops.filter((stop) => stop.lat != null && stop.lng != null).forEach((stop) => {
+      points.push([stop.lat, stop.lng]);
+      L.circleMarker([stop.lat, stop.lng], {
+        radius: selectedId === stop.id ? 9 : 6, color: '#fff', weight: 2,
+        fillColor: stop.passed ? '#91a3b2' : '#12618e', fillOpacity: 1
+      }).bindTooltip(stop.name, { direction: 'top' }).on('click', () => onSelect(selectedId === stop.id ? null : stop.id)).addTo(stopLayerRef.current);
+    });
+    if (fittedRef.current !== data.trip_id && points.length) { map.fitBounds(points, { padding: [24, 24] }); fittedRef.current = data.trip_id; }
+  }, [data.stops, data.route_path, selectedId, data.trip_id]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!position) { if (markerRef.current) { markerRef.current.remove(); markerRef.current = null; } return; }
+    const latLng = [position.latitude, position.longitude];
+    if (!markerRef.current) {
+      const icon = L.divIcon({ className: 'vehicle-marker', html: '<span>●</span>', iconSize: [24, 24], iconAnchor: [12, 12] });
+      markerRef.current = L.marker(latLng, { icon, zIndexOffset: 1000 }).addTo(map);
+    } else markerRef.current.setLatLng(latLng);
+  }, [position?.latitude, position?.longitude, data.trip_id]);
+  return <div className="live-map" ref={elementRef} role="img" aria-label="Mapa del recorrido y la ubicación de la unidad" />;
 }

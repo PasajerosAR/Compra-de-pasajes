@@ -465,3 +465,17 @@ h1, h2, h3, p { margin-top: 0; }
   .account-actions { display: grid; }
   .live-map { height: min(60vh, 390px); }
 }
+.trip-actions { display: flex; gap: 6px; width: 100%; }
+.track-button { min-height: 38px; width: 42px; padding: 0; display: grid; place-items: center; flex: none; }
+.tracking-stops-title { margin: 18px 0 2px; font-size: 16px; }
+.tracking-stops { list-style: none; margin: 10px 0 0; padding: 0; border: 1px solid #e1e8ed; border-radius: 12px; background: #fff; }
+.tracking-stops li + li { border-top: 1px solid #eef2f5; }
+.tracking-stops li > button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 8px 12px; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.tracking-stops .stop-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); }
+.tracking-stops .is-passed .stop-dot { background: #91a3b2; }
+.tracking-stops .is-passed { color: #718599; }
+.tracking-stops .stop-name { flex: 1; display: grid; }
+.tracking-stops .stop-name small { color: var(--blue); font-weight: 700; font-size: 11px; }
+.tracking-stops .stop-time { font-variant-numeric: tabular-nums; font-weight: 700; }
+.tracking-stops .stop-detail { padding: 0 12px 12px 32px; color: #4d6477; font-size: 14px; }
+.tracking-stops .is-open { background: #f5fafe; }
