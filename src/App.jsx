@@ -192,6 +192,19 @@ function ConnectedApp() {
 
   useEffect(() => {
     if (!companyId || companiesLoading) return;
+    const match = companies.find((c) => c.company_id === companyId || c.slug?.toLowerCase() === companyId.toLowerCase());
+    if (!match) return;
+    if (match.company_id !== companyId) setCompanyId(match.company_id);
+    const url = new URL(window.location.href);
+    if (match.slug && url.searchParams.get('empresa') !== match.slug) {
+      url.searchParams.set('empresa', match.slug);
+      window.history.replaceState({}, '', url);
+    }
+  }, [companyId, companies, companiesLoading]);
+
+  useEffect(() => {
+    if (!companyId || companiesLoading) return;
+    if (companies.some((c) => c.slug?.toLowerCase() === companyId.toLowerCase())) return;
     if (!companies.some((company) => company.company_id === companyId)) {
       setTrips([]);
       setTotalTrips(0);
@@ -375,7 +388,7 @@ function ConnectedApp() {
   const selectCompany = (company) => {
     const sameCompany = company.company_id === companyId;
     const url = new URL(window.location.href);
-    url.searchParams.set('empresa', company.company_id);
+    url.searchParams.set('empresa', company.slug || company.company_id);
     url.searchParams.delete('checkout');
     url.searchParams.delete('order_id');
     window.history.pushState({}, '', url);
@@ -419,7 +432,7 @@ function ConnectedApp() {
   const companyShareUrl = (company) => {
     const url = new URL(window.location.href);
     url.search = '';
-    url.searchParams.set('empresa', company.company_id);
+    url.searchParams.set('empresa', company.slug || company.company_id);
     return url.toString();
   };
   const copyCompanyLink = async (company) => {
@@ -750,11 +763,13 @@ function TripCard({ trip, onChoose, onTrack }) {
   return <article className="trip-card">
     <div className="company-avatar blue"><Icon name="bus" size={19} /></div>
     <div className="trip-main">
-      <div className="trip-company-row"><div><p className="trip-company">{trip.company_name}<span className="trip-dot">·</span><span className="trip-type">{trip.route_name}</span></p><p className="trip-service">Servicio {trip.service_code}</p></div><span className="availability"><span />{trip.available_seats} lugares aprox.</span></div>
+      <div className="trip-company-row"><div><p className="trip-company">{trip.company_name}<span className="trip-dot">·</span><span className="trip-type">{trip.route_name}</span></p><p className="trip-service">Servicio {trip.service_code}</p></div>{!trip.in_transit && <span className="availability"><span />{trip.available_seats} lugares aprox.</span>}</div>
       <div className="trip-times"><div className="time-stop"><strong>{formatTime(trip.scheduled_departure)}</strong><span>{trip.from_stop_name}</span></div><div className="trip-duration"><span>{formatDate(trip.service_date)}</span><div><i /><span>Salida</span><i /></div></div><div className="time-stop align-right"><strong>{trip.to_stop_name}</strong><span>Destino</span></div></div>
       <div className="amenities"><span><Icon name="pin" size={14} />{trip.route_name}</span><span><Icon name="calendar" size={14} />{formatDate(trip.service_date)}</span></div>
     </div>
-    <div className="trip-price"><span className="price-label">Desde</span><strong>{formatPrice(trip.price)}</strong><div className="trip-actions"><button className="button button-primary choose-button" onClick={() => onChoose(trip)}>Ver asientos <Icon name="arrow" size={16} /></button><button className="button button-secondary track-button" onClick={() => onTrack(trip.trip_id)} aria-label={`Seguir en vivo el servicio ${trip.service_code}`} title="Seguir la unidad en vivo"><Icon name="track" size={18} /></button></div></div>
+    <div className="trip-price"><span className="price-label">Desde</span><strong>{formatPrice(trip.price)}</strong><div className="trip-actions">{trip.in_transit
+          ? <span className="trip-in-transit">En viaje</span>
+          : <button className="button button-primary choose-button" onClick={() => onChoose(trip)}>Ver asientos <Icon name="arrow" size={16} /></button>}<button className="button button-secondary track-button" onClick={() => onTrack(trip.trip_id)} aria-label={`Seguir en vivo el servicio ${trip.service_code}`} title="Seguir la unidad en vivo"><Icon name="track" size={18} /></button></div></div>
   </article>;
 }
 

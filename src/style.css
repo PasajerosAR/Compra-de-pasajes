@@ -479,3 +479,5 @@ h1, h2, h3, p { margin-top: 0; }
 .tracking-stops .stop-time { font-variant-numeric: tabular-nums; font-weight: 700; }
 .tracking-stops .stop-detail { padding: 0 12px 12px 32px; color: #4d6477; font-size: 14px; }
 .tracking-stops .is-open { background: #f5fafe; }
+
+.trip-in-transit { font-weight: 700; color: #b45309; padding: 0 .5rem; align-self: center; }
