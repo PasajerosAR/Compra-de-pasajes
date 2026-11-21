@@ -486,3 +486,9 @@ h1, h2, h3, p { margin-top: 0; }
 .tracking-route, .tracking-sub { text-align: center; }
 .stop-group { margin-top: 16px; }
 .stop-group .stop-place { margin: 0 0 8px; text-align: center; color: #193b55; font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+
+.tracking-share { text-align: center; margin: 2px 0 6px; }
+.stop-pin, .unit-marker { background: none; border: 0; }
+.unit-marker { overflow: visible; }
+.unit-arrow { width: 30px; height: 30px; display: grid; place-items: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
+.unit-label { position: absolute; left: 50%; top: 31px; transform: translateX(-50%); padding: 1px 6px; border-radius: 9px; background: #12618e; color: #fff; font-size: 10px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.3); }

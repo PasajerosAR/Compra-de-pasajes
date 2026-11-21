@@ -94,7 +94,7 @@ export default function App() {
 }
 
 function ConnectedApp() {
-  const [section, setSection] = useState('search');
+  const [section, setSection] = useState(() => (new URLSearchParams(window.location.search).get('viaje') ? 'tracking' : 'search'));
   const [stage, setStage] = useState('results');
   const [session, setSession] = useState(null);
   const [places, setPlaces] = useState([]);
@@ -129,8 +129,9 @@ function ConnectedApp() {
   const [checkoutError, setCheckoutError] = useState('');
   const [accountMode, setAccountMode] = useState('login');
   const [authMessage, setAuthMessage] = useState('');
-  const [trackingTrip, setTrackingTrip] = useState(null);
-  const [trackingBack, setTrackingBack] = useState('tickets');
+  const [trackingTrip, setTrackingTrip] = useState(() => new URLSearchParams(window.location.search).get('viaje') || null);
+  const [trackingBack, setTrackingBack] = useState(() => (new URLSearchParams(window.location.search).get('viaje') ? 'search' : 'tickets'));
+  const openedFromLink = useRef(Boolean(new URLSearchParams(window.location.search).get('viaje')));
   const [checkoutOrderId, setCheckoutOrderId] = useState('');
   const [paymentBusy, setPaymentBusy] = useState(false);
 
@@ -237,13 +238,17 @@ function ConnectedApp() {
   useEffect(() => {
     const view = { section, stage, trip: selectedTrip, tracking: trackingTrip, back: trackingBack };
     const state = { view, viewKey: viewKeyOf(view) };
+    // el seguimiento tiene su propio enlace (?viaje=...) para poder compartirlo
+    const url = new URL(window.location.href);
+    if (section === 'tracking' && trackingTrip) url.searchParams.set('viaje', trackingTrip);
+    else url.searchParams.delete('viaje');
     if (firstView.current) {
       firstView.current = false;
-      window.history.replaceState({ ...(window.history.state ?? {}), ...state }, '', window.location.href);
+      window.history.replaceState({ ...(window.history.state ?? {}), ...state }, '', url);
       return;
     }
     if (window.history.state?.viewKey === state.viewKey) return;
-    window.history.pushState(state, '', window.location.href);
+    window.history.pushState(state, '', url);
   }, [section, stage, selectedTrip, trackingTrip, trackingBack]);
   useEffect(() => {
     const restoreView = (event) => {
@@ -519,6 +524,7 @@ function ConnectedApp() {
   };
 
   const startTracking = (tripId, back = 'tickets') => {
+    openedFromLink.current = false;
     setTrackingTrip(tripId);
     setTrackingBack(back);
     setSection('tracking');
@@ -667,7 +673,10 @@ function ConnectedApp() {
             }} />
         )}
         {section === 'tickets' && session && <TicketsPage onTrack={startTracking} />}
-        {section === 'tracking' && trackingTrip && <TrackingPage tripId={trackingTrip} backLabel={trackingBack === 'search' ? 'Volver a los resultados' : 'Volver a mis pasajes'} onBack={() => window.history.back()} />}
+        {section === 'tracking' && trackingTrip && <TrackingPage tripId={trackingTrip} backLabel={trackingBack === 'search' ? 'Volver a los resultados' : 'Volver a mis pasajes'} onBack={() => {
+          if (openedFromLink.current) { openedFromLink.current = false; setSection('search'); setTrackingTrip(null); }
+          else window.history.back();
+        }} />}
         {section === 'checkoutResult' && <CheckoutResultPage
           orderId={checkoutOrderId}
           onTickets={() => { setSection(session ? 'tickets' : 'account'); setAccountMode('login'); }}
@@ -1152,6 +1161,19 @@ function TrackingPage({ tripId, onBack, backLabel }) {
   const delay = data?.delay_minutes;
   const stopRole = (id) => [mine.some((m) => m.from_stop_id === id) && 'Tu subida', mine.some((m) => m.to_stop_id === id) && 'Tu bajada'].filter(Boolean).join(' · ');
   const nextStop = stops.find((stop) => !stop.passed);
+  const [shared, setShared] = useState('');
+  const shareTrip = async () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('viaje', tripId);
+    url.searchParams.delete('checkout');
+    url.searchParams.delete('order_id');
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Seguimiento en vivo', url: url.toString() }); return; }
+      await navigator.clipboard.writeText(url.toString());
+      setShared('Enlace copiado');
+    } catch { setShared(url.toString()); }
+    window.setTimeout(() => setShared(''), 4000);
+  };
   // Las paradas se agrupan por localidad (cada grupo es su propia tarjeta).
   const stopGroups = stops.reduce((groups, stop) => {
     const last = groups[groups.length - 1];
@@ -1162,6 +1184,7 @@ function TrackingPage({ tripId, onBack, backLabel }) {
   return <section className="flow-page tracking-page">
     <button className="back-button" onClick={onBack}><Icon name="back" size={18} /> {backLabel}</button>
     <div className="tracking-head"><span className="eyebrow muted-eyebrow">SEGUIMIENTO EN VIVO</span></div>
+    <div className="tracking-share"><button type="button" className="text-button" onClick={shareTrip}>{shared || 'Compartir este viaje'}</button></div>
     {error && <Notice kind="error">{error}</Notice>}
     {data === undefined && !error && <p className="loading-state">Cargando seguimiento...</p>}
     {data === null && <Notice kind="warning">El seguimiento de este viaje no está disponible. Si ya compraste el pasaje, ingresá a tu cuenta y abrilo desde "Mis pasajes".</Notice>}
@@ -1194,6 +1217,20 @@ function TrackingPage({ tripId, onBack, backLabel }) {
   </section>;
 }
 
+// Parada: pin rojo. Unidad: flecha que apunta al rumbo, con el numero de interno al lado.
+const stopPinIcon = (selected, passed) => L.divIcon({
+  className: 'stop-pin',
+  html: `<svg viewBox="0 0 24 32" width="${selected ? 30 : 22}" height="${selected ? 40 : 29}" style="opacity:${passed ? 0.55 : 1}" aria-hidden="true"><path d="M12 0C5.4 0 0 5.2 0 11.7 0 20.6 12 32 12 32s12-11.4 12-20.3C24 5.2 18.6 0 12 0z" fill="#d93025" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="11.5" r="4.2" fill="#fff"/></svg>`,
+  iconSize: selected ? [30, 40] : [22, 29], iconAnchor: selected ? [15, 40] : [11, 29]
+});
+const unitIcon = (heading, label) => L.divIcon({
+  className: 'unit-marker',
+  html: `<div class="unit-arrow" style="transform: rotate(${Number.isFinite(heading) ? heading : 0}deg)">${Number.isFinite(heading)
+    ? '<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path d="M12 2 20 21l-8-4-8 4z" fill="#12618e" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="#12618e" stroke="#fff" stroke-width="2"/></svg>'}</div>${label ? `<span class="unit-label">Interno ${String(label).replace(/[<>&"]/g, '')}</span>` : ''}`,
+  iconSize: [30, 30], iconAnchor: [15, 15]
+});
+
 function TrackingMap({ data, selectedId, onSelect }) {
   const elementRef = useRef(null);
   const mapRef = useRef(null);
@@ -1203,7 +1240,8 @@ function TrackingMap({ data, selectedId, onSelect }) {
   const position = data.position;
   useEffect(() => {
     if (!elementRef.current) return undefined;
-    const map = L.map(elementRef.current).setView([-31.7, -60.5], 11);
+    const map = L.map(elementRef.current, { attributionControl: false }).setView([-31.7, -60.5], 11);
+    L.control.attribution({ prefix: false }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
     stopLayerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
@@ -1220,10 +1258,8 @@ function TrackingMap({ data, selectedId, onSelect }) {
     }
     data.stops.filter((stop) => stop.lat != null && stop.lng != null).forEach((stop) => {
       points.push([stop.lat, stop.lng]);
-      L.circleMarker([stop.lat, stop.lng], {
-        radius: selectedId === stop.id ? 9 : 6, color: '#fff', weight: 2,
-        fillColor: stop.passed ? '#91a3b2' : '#12618e', fillOpacity: 1
-      }).bindTooltip(stop.name, { direction: 'top' }).on('click', () => onSelect(selectedId === stop.id ? null : stop.id)).addTo(stopLayerRef.current);
+      L.marker([stop.lat, stop.lng], { icon: stopPinIcon(selectedId === stop.id, stop.passed), keyboard: false })
+        .bindTooltip(stop.name, { direction: 'top', offset: [0, -26] }).on('click', () => onSelect(selectedId === stop.id ? null : stop.id)).addTo(stopLayerRef.current);
     });
     if (fittedRef.current !== data.trip_id && points.length) { map.fitBounds(points, { padding: [24, 24] }); fittedRef.current = data.trip_id; }
   }, [data.stops, data.route_path, selectedId, data.trip_id]);
@@ -1233,9 +1269,11 @@ function TrackingMap({ data, selectedId, onSelect }) {
     if (!position) { if (markerRef.current) { markerRef.current.remove(); markerRef.current = null; } return; }
     const latLng = [position.latitude, position.longitude];
     if (!markerRef.current) {
-      const icon = L.divIcon({ className: 'vehicle-marker', html: '<span>●</span>', iconSize: [24, 24], iconAnchor: [12, 12] });
-      markerRef.current = L.marker(latLng, { icon, zIndexOffset: 1000 }).addTo(map);
-    } else markerRef.current.setLatLng(latLng);
-  }, [position?.latitude, position?.longitude, data.trip_id]);
+      markerRef.current = L.marker(latLng, { icon: unitIcon(position.heading, data.vehicle_label), zIndexOffset: 1000 }).addTo(map);
+    } else {
+      markerRef.current.setLatLng(latLng);
+      markerRef.current.setIcon(unitIcon(position.heading, data.vehicle_label));
+    }
+  }, [position?.latitude, position?.longitude, position?.heading, data.vehicle_label, data.trip_id]);
   return <div className="live-map" ref={elementRef} role="img" aria-label="Mapa del recorrido y la ubicación de la unidad" />;
 }
