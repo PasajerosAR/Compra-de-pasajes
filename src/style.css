@@ -484,4 +484,5 @@ h1, h2, h3, p { margin-top: 0; }
 
 .tracking-head { text-align: center; margin: 4px 0 2px; }
 .tracking-route, .tracking-sub { text-align: center; }
-.tracking-stops .stop-place { list-style: none; margin: 14px 0 4px; padding: 0 2px; color: #193b55; font-weight: 700; font-size: 13px; letter-spacing: .02em; text-transform: uppercase; border-bottom: 1px solid #e3eaef; }
+.stop-group { margin-top: 16px; }
+.stop-group .stop-place { margin: 0 0 8px; text-align: center; color: #193b55; font-size: 15px; font-weight: 700; letter-spacing: .02em; }

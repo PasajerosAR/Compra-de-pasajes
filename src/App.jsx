@@ -1152,6 +1152,13 @@ function TrackingPage({ tripId, onBack, backLabel }) {
   const delay = data?.delay_minutes;
   const stopRole = (id) => [mine.some((m) => m.from_stop_id === id) && 'Tu subida', mine.some((m) => m.to_stop_id === id) && 'Tu bajada'].filter(Boolean).join(' · ');
   const nextStop = stops.find((stop) => !stop.passed);
+  // Las paradas se agrupan por localidad (cada grupo es su propia tarjeta).
+  const stopGroups = stops.reduce((groups, stop) => {
+    const last = groups[groups.length - 1];
+    if (last && last.place === (stop.place_name ?? null)) last.stops.push(stop);
+    else groups.push({ key: `${groups.length}-${stop.id}`, place: stop.place_name ?? null, stops: [stop] });
+    return groups;
+  }, []);
   return <section className="flow-page tracking-page">
     <button className="back-button" onClick={onBack}><Icon name="back" size={18} /> {backLabel}</button>
     <div className="tracking-head"><span className="eyebrow muted-eyebrow">SEGUIMIENTO EN VIVO</span></div>
@@ -1167,21 +1174,22 @@ function TrackingPage({ tripId, onBack, backLabel }) {
       <TrackingMap data={data} selectedId={selected} onSelect={setSelected} />
       <h2 className="tracking-stops-title">Paradas</h2>
       <p className="muted">Tocá una parada para ver la hora aproximada de llegada.</p>
-      <ol className="tracking-stops">{stops.map((stop, index) => {
-        const open = selected === stop.id;
-        const role = stopRole(stop.id);
-        const newPlace = stop.place_name && stop.place_name !== stops[index - 1]?.place_name;
-        return <Fragment key={stop.id}>
-        {newPlace && <li className="stop-place" aria-hidden="true">{stop.place_name}</li>}
-        <li className={`${stop.passed ? 'is-passed' : ''}${open ? ' is-open' : ''}`}>
+      {stopGroups.map((group) => <section className="stop-group" key={group.key}>
+        {group.place && <h3 className="stop-place">{group.place}</h3>}
+        <ol className="tracking-stops">{group.stops.map((stop) => {
+          const open = selected === stop.id;
+          const role = stopRole(stop.id);
+          return (
+          <li key={stop.id} className={`${stop.passed ? 'is-passed' : ''}${open ? ' is-open' : ''}`}>
           <button type="button" onClick={() => setSelected(open ? null : stop.id)} aria-expanded={open}>
             <span className="stop-dot" aria-hidden="true" /><span className="stop-name">{stop.name}{role && <small>{role}</small>}</span>
             <span className="stop-time">{stop.passed ? 'Ya pasó' : stop.eta_at ? formatTime(stop.eta_at) : ''}</span>
           </button>
           {open && <div className="stop-detail">{stop.passed ? 'La unidad ya pasó por esta parada.' : stop.eta_at ? `Llegada aproximada: ${formatTime(stop.eta_at)}${stop.scheduled_at && Math.abs(new Date(stop.eta_at) - new Date(stop.scheduled_at)) > 90000 ? ` (programada ${formatTime(stop.scheduled_at)})` : ''}` : 'Sin horario estimado para esta parada.'}</div>}
         </li>
-        </Fragment>;
-      })}</ol>
+          );
+        })}</ol>
+      </section>)}
     </>}
   </section>;
 }
