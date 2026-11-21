@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -28,6 +28,16 @@ const seatClassNames = {
 function formatPrice(value) {
   if (value == null) return 'Consultar';
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(Number(value));
+}
+
+const DEFAULT_VIEW = { section: 'search', stage: 'results', trip: null, tracking: null, back: 'tickets' };
+const viewKeyOf = (v) => `${v.section}|${v.stage}|${v.trip?.trip_id ?? ''}|${v.trip?.from_stop_id ?? ''}|${v.tracking ?? ''}`;
+const defaultViewState = () => ({ view: DEFAULT_VIEW, viewKey: viewKeyOf(DEFAULT_VIEW) });
+
+function formatLongDate(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('es-AR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires' })
+    .format(new Date(value));
 }
 
 function formatDate(value) {
@@ -217,9 +227,43 @@ function ConnectedApp() {
     void loadCompanyTrips(companyId, 1, emptyFilters);
   }, [companyId, companies, companiesLoading, loadCompanyTrips]);
 
+  const companiesRef = useRef([]);
+  const companyIdRef = useRef('');
+  companiesRef.current = companies;
+  companyIdRef.current = companyId;
+
+  // Botones atras/adelante del navegador: cada pantalla (resultados, asientos, seguimiento, mis pasajes...) es una entrada del historial.
+  const firstView = useRef(true);
+  useEffect(() => {
+    const view = { section, stage, trip: selectedTrip, tracking: trackingTrip, back: trackingBack };
+    const state = { view, viewKey: viewKeyOf(view) };
+    if (firstView.current) {
+      firstView.current = false;
+      window.history.replaceState({ ...(window.history.state ?? {}), ...state }, '', window.location.href);
+      return;
+    }
+    if (window.history.state?.viewKey === state.viewKey) return;
+    window.history.pushState(state, '', window.location.href);
+  }, [section, stage, selectedTrip, trackingTrip, trackingBack]);
+  useEffect(() => {
+    const restoreView = (event) => {
+      const view = event.state?.view ?? DEFAULT_VIEW;
+      setSection(view.section);
+      setStage(view.stage);
+      setSelectedTrip(view.trip);
+      setTrackingTrip(view.tracking);
+      setTrackingBack(view.back);
+    };
+    window.addEventListener('popstate', restoreView);
+    return () => window.removeEventListener('popstate', restoreView);
+  }, []);
+
   useEffect(() => {
     const updateCompanyFromUrl = () => {
       const nextCompanyId = new URLSearchParams(window.location.search).get('empresa') ?? '';
+      const currentCompany = companiesRef.current.find((c) => c.company_id === companyIdRef.current);
+      const currentParam = currentCompany ? (currentCompany.slug || currentCompany.company_id) : companyIdRef.current;
+      if (nextCompanyId.toLowerCase() === currentParam.toLowerCase() || nextCompanyId === companyIdRef.current) return;
       setCompanyId(nextCompanyId);
       setOrigin('');
       setOriginInput('');
@@ -391,7 +435,7 @@ function ConnectedApp() {
     url.searchParams.set('empresa', company.slug || company.company_id);
     url.searchParams.delete('checkout');
     url.searchParams.delete('order_id');
-    window.history.pushState({}, '', url);
+    window.history.pushState(defaultViewState(), '', url);
     companyRequest.current += 1;
     setCompanyId(company.company_id);
     setSection('search');
@@ -414,7 +458,7 @@ function ConnectedApp() {
   const clearCompany = () => {
     const url = new URL(window.location.href);
     url.searchParams.delete('empresa');
-    window.history.pushState({}, '', url);
+    window.history.pushState(defaultViewState(), '', url);
     companyRequest.current += 1;
     setSearchBusy(false);
     setCompanyId('');
@@ -623,7 +667,7 @@ function ConnectedApp() {
             }} />
         )}
         {section === 'tickets' && session && <TicketsPage onTrack={startTracking} />}
-        {section === 'tracking' && trackingTrip && <TrackingPage tripId={trackingTrip} backLabel={trackingBack === 'search' ? 'Volver a los resultados' : 'Volver a mis pasajes'} onBack={() => setSection(trackingBack)} />}
+        {section === 'tracking' && trackingTrip && <TrackingPage tripId={trackingTrip} backLabel={trackingBack === 'search' ? 'Volver a los resultados' : 'Volver a mis pasajes'} onBack={() => window.history.back()} />}
         {section === 'checkoutResult' && <CheckoutResultPage
           orderId={checkoutOrderId}
           onTickets={() => { setSection(session ? 'tickets' : 'account'); setAccountMode('login'); }}
@@ -1110,29 +1154,33 @@ function TrackingPage({ tripId, onBack, backLabel }) {
   const nextStop = stops.find((stop) => !stop.passed);
   return <section className="flow-page tracking-page">
     <button className="back-button" onClick={onBack}><Icon name="back" size={18} /> {backLabel}</button>
-    <span className="eyebrow muted-eyebrow">SEGUIMIENTO EN VIVO</span>
+    <div className="tracking-head"><span className="eyebrow muted-eyebrow">SEGUIMIENTO EN VIVO</span></div>
     {error && <Notice kind="error">{error}</Notice>}
     {data === undefined && !error && <p className="loading-state">Cargando seguimiento...</p>}
     {data === null && <Notice kind="warning">El seguimiento de este viaje no está disponible. Si ya compraste el pasaje, ingresá a tu cuenta y abrilo desde "Mis pasajes".</Notice>}
     {data && <>
-      <h1>{data.origin_name} <span aria-hidden="true">→</span> {data.destination_name}</h1>
-      <p className="muted">{data.company_name} · Servicio {data.service_code} · Salida {formatTime(data.scheduled_departure)}</p>
+      <h1 className="tracking-route">{data.origin_place || data.origin_name} <span aria-hidden="true">→</span> {data.destination_place || data.destination_name}</h1>
+      <p className="muted tracking-sub">{data.company_name} · Servicio {data.service_code} · {formatLongDate(data.scheduled_departure)} · Salida {formatTime(data.scheduled_departure)}</p>
       {data.signal
         ? <Notice kind="info">{delay == null ? 'Unidad en ruta.' : delay > 1 ? `La unidad va ${delay} min atrasada respecto del horario.` : delay < -1 ? `La unidad va ${-delay} min adelantada respecto del horario.` : 'La unidad va en hora.'}{nextStop?.eta_at ? ` Próxima parada: ${nextStop.name}, aprox. ${formatTime(nextStop.eta_at)}.` : ''}</Notice>
         : <Notice kind="warning">Todavía sin señal de la unidad. Cuando salga a ruta la vas a ver en el mapa.</Notice>}
       <TrackingMap data={data} selectedId={selected} onSelect={setSelected} />
       <h2 className="tracking-stops-title">Paradas</h2>
       <p className="muted">Tocá una parada para ver la hora aproximada de llegada.</p>
-      <ol className="tracking-stops">{stops.map((stop) => {
+      <ol className="tracking-stops">{stops.map((stop, index) => {
         const open = selected === stop.id;
         const role = stopRole(stop.id);
-        return <li key={stop.id} className={`${stop.passed ? 'is-passed' : ''}${open ? ' is-open' : ''}`}>
+        const newPlace = stop.place_name && stop.place_name !== stops[index - 1]?.place_name;
+        return <Fragment key={stop.id}>
+        {newPlace && <li className="stop-place" aria-hidden="true">{stop.place_name}</li>}
+        <li className={`${stop.passed ? 'is-passed' : ''}${open ? ' is-open' : ''}`}>
           <button type="button" onClick={() => setSelected(open ? null : stop.id)} aria-expanded={open}>
             <span className="stop-dot" aria-hidden="true" /><span className="stop-name">{stop.name}{role && <small>{role}</small>}</span>
             <span className="stop-time">{stop.passed ? 'Ya pasó' : stop.eta_at ? formatTime(stop.eta_at) : ''}</span>
           </button>
           {open && <div className="stop-detail">{stop.passed ? 'La unidad ya pasó por esta parada.' : stop.eta_at ? `Llegada aproximada: ${formatTime(stop.eta_at)}${stop.scheduled_at && Math.abs(new Date(stop.eta_at) - new Date(stop.scheduled_at)) > 90000 ? ` (programada ${formatTime(stop.scheduled_at)})` : ''}` : 'Sin horario estimado para esta parada.'}</div>}
-        </li>;
+        </li>
+        </Fragment>;
       })}</ol>
     </>}
   </section>;
