@@ -492,3 +492,14 @@ h1, h2, h3, p { margin-top: 0; }
 .unit-marker { overflow: visible; }
 .unit-arrow { width: 30px; height: 30px; display: grid; place-items: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,.35)); }
 .unit-label { position: absolute; left: 50%; top: 31px; transform: translateX(-50%); padding: 1px 6px; border-radius: 9px; background: #12618e; color: #fff; font-size: 10px; font-weight: 700; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+
+/* abonos */
+.pass-list { display: grid; gap: 10px; margin-bottom: 22px; }
+.pass-list h2 { font-size: 18px; margin: 0; }
+.pass-card { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: center; padding: 14px 16px; border: 1px solid var(--line, #dfe3ea); border-radius: 12px; background: #fff; }
+.pass-card h3 { margin: 2px 0 0; font-size: 15px; }
+.pass-card small { grid-column: 1 / -1; color: #5b6472; }
+.pass-count { text-align: right; display: grid; }
+.pass-count strong { font-size: 26px; line-height: 1; }
+.pass-count span { font-size: 12px; color: #5b6472; }
+.pass-pay { border: 1px solid #b9d7c3; background: #f3faf5; }

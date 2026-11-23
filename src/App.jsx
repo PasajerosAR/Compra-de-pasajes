@@ -60,6 +60,10 @@ function errorText(error) {
   if (raw.includes('23505')) return 'Ya existe una cuenta registrada con ese DNI o correo.';
   if (raw.includes('DATE_INVALID')) return 'La fecha debe estar dentro de los próximos 180 días.';
   if (raw.includes('PLACES_INVALID')) return 'Elegí un origen y un destino distintos.';
+  const coded = raw.match(/^[A-Z_]{4,}:\s*(.+)$/s);
+  if (coded) return coded[1];
+  if (raw.includes('TRIP_UNAVAILABLE')) return 'El viaje ya no está disponible para reservar.';
+  if (raw.includes('SEAT_TAKEN')) return 'Ese asiento ya fue tomado. Elegí otro.';
   return 'No se pudo completar la operación. Intentá nuevamente.';
 }
 
@@ -523,6 +527,24 @@ function ConnectedApp() {
     setSelectedSeats([]);
   };
 
+  // pagar un pasaje con el abono (viaje del saldo, sin pasar por Mercado Pago)
+  const usePass = async (passId) => {
+    if (!selectedTrip || selectedSeats.length !== 1) {
+      setCheckoutError('Elegí un asiento para usar el abono.');
+      return;
+    }
+    setPaymentBusy(true);
+    setCheckoutError('');
+    const { error } = await supabase.rpc('pass_redeem_web', {
+      p_pass: passId, p_trip: selectedTrip.trip_id, p_from: boardingStop, p_to: alightingStop, p_seat_label: selectedSeats[0].seat_label
+    });
+    setPaymentBusy(false);
+    if (error) { setCheckoutError(errorText(error)); return; }
+    resetSearch();
+    setAuthMessage('Listo: reservaste el pasaje con tu abono. Lo ves en Mis pasajes.');
+    setSection('tickets');
+  };
+
   const startTracking = (tripId, back = 'tickets') => {
     openedFromLink.current = false;
     setTrackingTrip(tripId);
@@ -653,7 +675,7 @@ function ConnectedApp() {
             boardingStop={boardingStop} alightingStop={alightingStop} selectedSeats={selectedSeats}
             passengerCount={Number(passengerCount)} error={checkoutError}
             session={session} paymentBusy={paymentBusy} onLogin={() => { setAccountMode('login'); setSection('account'); }}
-            onStartPayment={startPayment}
+            onStartPayment={startPayment} onUsePass={usePass}
             onBoarding={setBoardingStop} onAlighting={setAlightingStop}
             onToggleSeat={(seat) => setSelectedSeats((current) => {
               if (current.some((selected) => selected.cell_id === seat.cell_id)) {
@@ -826,11 +848,19 @@ function TripCard({ trip, onChoose, onTrack }) {
   </article>;
 }
 
-function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, alightingStop, selectedSeats, passengerCount, error, session, paymentBusy, onLogin, onStartPayment, onBoarding, onAlighting, onToggleSeat, onBack }) {
+function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, alightingStop, selectedSeats, passengerCount, error, session, paymentBusy, onLogin, onStartPayment, onUsePass, onBoarding, onAlighting, onToggleSeat, onBack }) {
   const [phone, setPhone] = useState('');
   const [additionalPassengers, setAdditionalPassengers] = useState([]);
   const [primaryPassenger, setPrimaryPassenger] = useState({ first_name: '', last_name: '', dni: '', birth_date: '' });
   const [profileLoadError, setProfileLoadError] = useState('');
+  const [myPasses, setMyPasses] = useState([]);
+  const [passId, setPassId] = useState('');
+  useEffect(() => {
+    if (!session?.user?.id) { setMyPasses([]); return undefined; }
+    let active = true;
+    void supabase.rpc('passenger_my_passes').then(({ data }) => { if (active) setMyPasses(data ?? []); });
+    return () => { active = false; };
+  }, [session?.user?.id]);
   useEffect(() => {
     let active = true;
     const metadata = session?.user?.user_metadata ?? {};
@@ -881,6 +911,11 @@ function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, 
       passenger.passenger_name.trim().length >= 2
       && /^[0-9]{7,10}$/.test(passenger.passenger_dni.trim())
       && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(passenger.passenger_email.trim()));
+  // abonos que sirven para este viaje: misma empresa, mismo par de localidades (en cualquier sentido), con viajes y sin vencer
+  const usablePasses = myPasses.filter((pass) => pass.usable && pass.company_name === trip.company_name
+    && ((pass.place_a === trip.origin_place_id && pass.place_b === trip.destination_place_id)
+      || (pass.place_b === trip.origin_place_id && pass.place_a === trip.destination_place_id)));
+  const chosenPass = usablePasses.find((pass) => pass.pass_id === passId) ?? usablePasses[0];
   const updateAdditionalPassenger = (index, field, value) => {
     setAdditionalPassengers((current) => current.map((passenger, passengerIndex) =>
       passengerIndex === index ? { ...passenger, [field]: value } : passenger));
@@ -933,6 +968,15 @@ function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, 
           </div>
         ))}
         {additionalPassengers.length > 0 && !extrasComplete && <p className="muted passenger-form-hint">Completá nombre, DNI y correo de cada pasajero adicional antes de pagar.</p>}
+        {usablePasses.length > 0 && chosenPass && <div className="passenger-form-block pass-pay">
+          <h3>Pagar con tu abono</h3>
+          {usablePasses.length > 1 && <label className="input-field"><span>Abono</span><select value={chosenPass.pass_id} onChange={(event) => setPassId(event.target.value)}>{usablePasses.map((pass) => <option key={pass.pass_id} value={pass.pass_id}>{pass.place_a_name} ↔ {pass.place_b_name}{pass.seat_class ? ` · ${pass.seat_class}` : ''} · quedan {pass.trips_left}</option>)}</select></label>}
+          <p className="muted">Te quedan <strong>{chosenPass.trips_left}</strong> de {chosenPass.trips_total} viajes · vence el {formatDate(chosenPass.expires_at)}. Se descuenta 1 viaje por pasaje; si cancelás con 2 horas o más de anticipación, vuelve a tu saldo.</p>
+          {passengerCount > 1 && <p className="muted">El abono es personal: para usarlo buscá con 1 pasajero.</p>}
+          <button className="button button-secondary form-submit" type="button"
+            disabled={paymentBusy || passengerCount !== 1 || selectedSeats.length !== 1 || !selectedDestinationIsValid || seatsBusy || stopsBusy}
+            onClick={() => onUsePass(chosenPass.pass_id)}>{paymentBusy ? 'Reservando...' : 'Usar 1 viaje del abono'} <Icon name="ticket" size={17} /></button>
+        </div>}
         {!session && <Notice kind="warning">Iniciá sesión con tu cuenta de pasajero para comprar y consultar el pasaje.</Notice>}
         <Notice kind="warning">Estás en modo de prueba. Se abrirá el checkout de prueba de Mercado Pago; no se aceptarán pagos reales.</Notice>
         <button className="button button-primary form-submit" type="button"
@@ -1099,6 +1143,8 @@ function AccountPage({ session, onTickets, onLogout }) {
 
 function TicketsPage({ onTrack }) {
   const [tickets, setTickets] = useState([]);
+  const [passes, setPasses] = useState([]);
+  const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -1109,19 +1155,41 @@ function TicketsPage({ onTrack }) {
       if (resultError) setError(errorText(resultError));
       else setTickets(data ?? []);
     });
+    void supabase.rpc('passenger_my_passes').then(({ data }) => { if (active) setPasses(data ?? []); });
     return () => { active = false; };
-  }, []);
+  }, [reloadKey]);
   return <section className="flow-page tickets-page">
     <div className="section-heading"><div><span className="eyebrow muted-eyebrow">TU HISTORIAL</span><h1>Mis pasajes</h1></div><button className="button button-secondary print-button" onClick={() => window.print()} disabled={!tickets.length}>Imprimir / Guardar PDF</button></div>
     {error && <Notice kind="error">{error}</Notice>}
+    {passes.length > 0 && <div className="pass-list">
+      <h2>Mis abonos</h2>
+      {passes.map((pass) => <article className="pass-card" key={pass.pass_id}>
+        <div><span className="eyebrow muted-eyebrow">{pass.company_name}</span><h3>{pass.place_a_name} ↔ {pass.place_b_name}{pass.seat_class ? ` · ${pass.seat_class}` : ''}</h3></div>
+        <div className="pass-count"><strong>{pass.trips_left}</strong><span>de {pass.trips_total} viajes</span></div>
+        <small>{pass.status === 'cancelled' ? 'Dado de baja' : pass.expires_at <= new Date().toISOString() ? `Venció el ${formatDate(pass.expires_at)}` : pass.trips_left === 0 ? 'Sin viajes disponibles' : `Vence el ${formatDate(pass.expires_at)}`}</small>
+      </article>)}
+      <p className="muted">Para usarlo, buscá un viaje de ese tramo y elegí “Usar 1 viaje del abono”.</p>
+    </div>}
     {loading && <p className="loading-state">Cargando tus pasajes...</p>}
     {!loading && tickets.length === 0 && <div className="empty-state"><span>▣</span><h2>Todavía no tenés pasajes asociados</h2><p>Los pasajes comprados en boletería aparecerán acá cuando coincidan tu DNI y correo.</p><p>La compra desde esta web estará disponible cuando se active el pago online.</p></div>}
-    <div className="ticket-list">{tickets.map((ticket) => <TicketCard key={ticket.ticket_id} ticket={ticket} onTrack={onTrack} />)}</div>
+    <div className="ticket-list">{tickets.map((ticket) => <TicketCard key={ticket.ticket_id} ticket={ticket} onTrack={onTrack} onChanged={() => setReloadKey((n) => n + 1)} />)}</div>
   </section>;
 }
 
-function TicketCard({ ticket, onTrack }) {
+function TicketCard({ ticket, onTrack, onChanged }) {
   const [qr, setQr] = useState('');
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const cancelPassTicket = async () => {
+    const early = new Date(ticket.scheduled_departure).getTime() - Date.now() >= 2 * 3600 * 1000;
+    const warning = early ? 'Se cancela el pasaje y el viaje vuelve a tu abono.' : 'Falta menos de 2 horas para la salida: se cancela el pasaje y el viaje NO vuelve a tu abono.';
+    if (!window.confirm(`${warning} ¿Cancelar?`)) return;
+    setCancelBusy(true);
+    setCancelError('');
+    const { error } = await supabase.rpc('pass_cancel_ticket', { p_ticket: ticket.ticket_id });
+    setCancelBusy(false);
+    if (error) setCancelError(errorText(error)); else onChanged();
+  };
   useEffect(() => {
     let active = true;
     void QRCode.toDataURL(ticket.qr_code, { width: 220, margin: 1, errorCorrectionLevel: 'M' })
@@ -1134,7 +1202,8 @@ function TicketCard({ ticket, onTrack }) {
     <div className="ticket-route"><div><span>FECHA Y SALIDA</span><strong>{formatTime(ticket.scheduled_departure)}</strong><small>{formatDate(ticket.service_date)}</small></div><div className="ticket-route-line"><i /><Icon name="arrow" size={19} /><i /></div><div className="ticket-destination"><span>RECORRIDO</span><strong>{ticket.route_name}</strong><small>{ticket.company_name}</small></div></div>
     <div className="ticket-stop-details"><span><small>PARADA DE ASCENSO</small><strong>{ticket.from_stop}</strong></span><span><small>PARADA DE DESCENSO</small><strong>{ticket.to_stop}</strong></span></div>
     <div className="ticket-details"><div className="qr-placeholder">{qr ? <img src={qr} alt={`Código QR del pasaje de servicio ${ticket.service_code}`} /> : <span>Generando QR…</span>}<small>Presentá este código al conductor</small></div><div className="passenger-details"><span>Pasajero</span><strong>{ticket.passenger_name}</strong><span>DNI</span><strong>{ticket.passenger_dni}</strong><span>Correo</span><strong>{ticket.passenger_email}</strong><span>Asiento</span><strong>{ticket.seat_label ?? 'Sin asignar'}</strong><span>Importe</span><strong>{formatPrice(ticket.price)}</strong></div></div>
-    <div className="ticket-actions"><button className="button button-primary" onClick={() => window.print()}><Icon name="ticket" size={17} /> Imprimir / guardar PDF</button>{['scheduled', 'in_progress'].includes(ticket.trip_status) && ticket.ticket_status !== 'cancelled' && <button className="button button-secondary" onClick={() => onTrack(ticket.trip_id)}><Icon name="track" size={17} /> Seguir unidad</button>}</div>
+    <div className="ticket-actions"><button className="button button-primary" onClick={() => window.print()}><Icon name="ticket" size={17} /> Imprimir / guardar PDF</button>{['scheduled', 'in_progress'].includes(ticket.trip_status) && ticket.ticket_status !== 'cancelled' && <button className="button button-secondary" onClick={() => onTrack(ticket.trip_id)}><Icon name="track" size={17} /> Seguir unidad</button>}{ticket.pass_id && ticket.trip_status === 'scheduled' && ticket.ticket_status === 'valid' && <button className="button button-secondary" disabled={cancelBusy} onClick={() => void cancelPassTicket()}>{cancelBusy ? 'Cancelando...' : 'Cancelar pasaje'}</button>}</div>
+    {cancelError && <Notice kind="error">{cancelError}</Notice>}
   </article>;
 }
 
