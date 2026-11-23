@@ -67,6 +67,17 @@ function errorText(error) {
   return 'No se pudo completar la operación. Intentá nuevamente.';
 }
 
+// mensaje de una función de borde (usa el texto que devuelve el servidor si lo hay)
+async function functionErrorText(error) {
+  if (error.context instanceof Response) {
+    try {
+      const response = await error.context.clone().json();
+      if (typeof response.error === 'string') return response.error;
+    } catch { /* sin cuerpo */ }
+  }
+  return errorText(error);
+}
+
 function Icon({ name, size = 18 }) {
   const paths = {
     arrow: <><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>,
@@ -137,6 +148,7 @@ function ConnectedApp() {
   const [trackingBack, setTrackingBack] = useState(() => (new URLSearchParams(window.location.search).get('viaje') ? 'search' : 'tickets'));
   const openedFromLink = useRef(Boolean(new URLSearchParams(window.location.search).get('viaje')));
   const [checkoutOrderId, setCheckoutOrderId] = useState('');
+  const [checkoutKind, setCheckoutKind] = useState('ticket');
   const [paymentBusy, setPaymentBusy] = useState(false);
 
   const loadCompanyTrips = useCallback(async (targetCompanyId, page, filters) => {
@@ -167,6 +179,10 @@ function ConnectedApp() {
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     if (query.get('checkout') && query.get('order_id')) {
+      setCheckoutOrderId(query.get('order_id'));
+      setSection('checkoutResult');
+    } else if (query.get('pass_checkout') && query.get('order_id')) {
+      setCheckoutKind('pass');
       setCheckoutOrderId(query.get('order_id'));
       setSection('checkoutResult');
     }
@@ -545,6 +561,23 @@ function ConnectedApp() {
     setSection('tickets');
   };
 
+  // comprar un abono online: paga con Mercado Pago y el abono queda a nombre del DNI de la cuenta
+  const buyPass = async (productId) => {
+    if (!session) {
+      setAuthMessage('Ingresá a tu cuenta para comprar un abono.');
+      setAccountMode('login');
+      setSection('account');
+      return '';
+    }
+    const { data, error } = await supabase.functions.invoke('create-pass-checkout', { body: { product_id: productId } });
+    if (error) return functionErrorText(error);
+    if (typeof data?.checkout_url !== 'string') return 'No se recibió el enlace de pago de prueba.';
+    setCheckoutKind('pass');
+    setCheckoutOrderId(data.order_id);
+    window.location.assign(data.checkout_url);
+    return '';
+  };
+
   const startTracking = (tripId, back = 'tickets') => {
     openedFromLink.current = false;
     setTrackingTrip(tripId);
@@ -594,16 +627,7 @@ function ConnectedApp() {
     });
     setPaymentBusy(false);
     if (error) {
-      let text = errorText(error);
-      if (error.context instanceof Response) {
-        try {
-          const response = await error.context.clone().json();
-          if (typeof response.error === 'string') text = response.error;
-        } catch {
-          text = errorText(error);
-        }
-      }
-      setCheckoutError(text);
+      setCheckoutError(await functionErrorText(error));
       return;
     }
     if (typeof data?.checkout_url !== 'string') {
@@ -624,6 +648,7 @@ function ConnectedApp() {
           <nav className="desktop-nav" aria-label="Navegación principal">
             <button className={section === 'search' ? 'nav-link active' : 'nav-link'} onClick={() => navigate('search')}>Buscar viaje</button>
             <button className={section === 'companies' ? 'nav-link active' : 'nav-link'} onClick={() => { setAuthMessage(''); setSection('companies'); }}>Empresas</button>
+            <button className={section === 'passes' ? 'nav-link active' : 'nav-link'} onClick={() => navigate('passes')}>Abonos</button>
             <button className={section === 'tickets' ? 'nav-link active' : 'nav-link'} onClick={() => navigate('tickets')}>Mis pasajes</button>
             <button className={section === 'account' ? 'nav-link active' : 'nav-link'} onClick={() => navigate('account')}>{session ? 'Mi cuenta' : 'Ingresar'}</button>
           </nav>
@@ -694,15 +719,16 @@ function ConnectedApp() {
               setAuthMessage('');
             }} />
         )}
+        {section === 'passes' && <PassesPage onBuy={buyPass} onMine={() => navigate('tickets')} />}
         {section === 'tickets' && session && <TicketsPage onTrack={startTracking} />}
         {section === 'tracking' && trackingTrip && <TrackingPage tripId={trackingTrip} backLabel={trackingBack === 'search' ? 'Volver a los resultados' : 'Volver a mis pasajes'} onBack={() => {
           if (openedFromLink.current) { openedFromLink.current = false; setSection('search'); setTrackingTrip(null); }
           else window.history.back();
         }} />}
         {section === 'checkoutResult' && <CheckoutResultPage
-          orderId={checkoutOrderId}
+          orderId={checkoutOrderId} kind={checkoutKind}
           onTickets={() => { setSection(session ? 'tickets' : 'account'); setAccountMode('login'); }}
-          onSearch={() => { setCheckoutOrderId(''); setSection('search'); setStage('results'); setSelectedTrip(null); }}
+          onSearch={() => { setCheckoutOrderId(''); setCheckoutKind('ticket'); setSection('search'); setStage('results'); setSelectedTrip(null); }}
         />}
       </main>
 
@@ -713,6 +739,7 @@ function ConnectedApp() {
       <nav className="mobile-nav" aria-label="Navegación inferior">
         <button className={section === 'search' ? 'mobile-nav-item active' : 'mobile-nav-item'} onClick={() => navigate('search')}><Icon name="search" size={20} /><span>Buscar</span></button>
         <button className={section === 'companies' ? 'mobile-nav-item active' : 'mobile-nav-item'} onClick={() => { setAuthMessage(''); setSection('companies'); }}><Icon name="bus" size={20} /><span>Empresas</span></button>
+        <button className={section === 'passes' ? 'mobile-nav-item active' : 'mobile-nav-item'} onClick={() => navigate('passes')}><Icon name="ticket" size={20} /><span>Abonos</span></button>
         <button className={section === 'tickets' ? 'mobile-nav-item active' : 'mobile-nav-item'} onClick={() => navigate('tickets')}><Icon name="ticket" size={20} /><span>Mis pasajes</span></button>
         <button className={section === 'account' ? 'mobile-nav-item active' : 'mobile-nav-item'} onClick={() => navigate('account')}><Icon name="user" size={20} /><span>Cuenta</span></button>
       </nav>
@@ -992,7 +1019,8 @@ function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, 
   </section>;
 }
 
-function CheckoutResultPage({ orderId, onTickets, onSearch }) {
+function CheckoutResultPage({ orderId, kind = 'ticket', onTickets, onSearch }) {
+  const isPass = kind === 'pass';
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
 
@@ -1001,7 +1029,7 @@ function CheckoutResultPage({ orderId, onTickets, onSearch }) {
     let active = true;
     let timer;
     const refresh = async () => {
-      const { data, error: resultError } = await supabase.rpc('passenger_checkout_status', { p_order: orderId });
+      const { data, error: resultError } = await supabase.rpc(isPass ? 'pass_checkout_status' : 'passenger_checkout_status', { p_order: orderId });
       if (!active) return;
       if (resultError) {
         setError(errorText(resultError));
@@ -1021,7 +1049,7 @@ function CheckoutResultPage({ orderId, onTickets, onSearch }) {
     void refresh();
     timer = window.setInterval(() => { void refresh(); }, 3000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [orderId]);
+  }, [orderId, isPass]);
 
   const title = status === 'approved' ? '¡Pago de prueba aprobado!'
     : status === 'expired' ? 'La reserva venció'
@@ -1033,7 +1061,7 @@ function CheckoutResultPage({ orderId, onTickets, onSearch }) {
     <h1>{title}</h1>
     {error && <Notice kind="error">{error}</Notice>}
     {status === 'approved'
-      ? <Notice kind="success">Mercado Pago confirmó la operación. Tus pasajes ya están en “Mis pasajes”.</Notice>
+      ? <Notice kind="success">Mercado Pago confirmó la operación. {isPass ? 'Tu abono ya está en “Mis pasajes”, arriba, en “Mis abonos”.' : 'Tus pasajes ya están en “Mis pasajes”.'}</Notice>
       : status === 'refund_required'
         ? <Notice kind="warning">No se emitió un pasaje. Se inició una devolución porque la reserva ya no estaba disponible.</Notice>
         : status === 'expired'
@@ -1042,9 +1070,61 @@ function CheckoutResultPage({ orderId, onTickets, onSearch }) {
             ? <Notice kind="info">La compra no quedó confirmada y no se emitió ningún pasaje.</Notice>
             : <Notice kind="info">El retorno desde Mercado Pago no confirma el pago. Esperá mientras validamos la notificación segura del servidor.</Notice>}
     <div className="account-actions">
-      {status === 'approved' && <button className="button button-primary" onClick={onTickets}>Ver mis pasajes</button>}
+      {status === 'approved' && <button className="button button-primary" onClick={onTickets}>{isPass ? 'Ver mi abono' : 'Ver mis pasajes'}</button>}
       <button className="button button-secondary" onClick={onSearch}>Volver a buscar</button>
     </div>
+  </section>;
+}
+
+function PassesPage({ onBuy, onMine }) {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busyId, setBusyId] = useState('');
+  useEffect(() => {
+    let active = true;
+    void supabase.rpc('passenger_pass_catalog').then(({ data, error: resultError }) => {
+      if (!active) return;
+      setLoading(false);
+      if (resultError) setError(errorText(resultError)); else setProducts(data ?? []);
+    });
+    return () => { active = false; };
+  }, []);
+  const buy = async (productId) => {
+    setBusyId(productId);
+    setError('');
+    const message = await onBuy(productId);
+    setBusyId('');
+    if (message) setError(message);
+  };
+  // empresa → tramo (con clase de asiento) → opciones de cantidad
+  const companies = [];
+  for (const product of products) {
+    let company = companies.find((item) => item.id === product.company_id);
+    if (!company) { company = { id: product.company_id, name: product.company_name, routes: [] }; companies.push(company); }
+    const key = `${product.place_a_name}|${product.place_b_name}|${product.seat_class ?? ''}`;
+    let route = company.routes.find((item) => item.key === key);
+    if (!route) { route = { key, title: `${product.place_a_name} ↔ ${product.place_b_name}${product.seat_class ? ` · ${product.seat_class}` : ''}`, options: [] }; company.routes.push(route); }
+    route.options.push(product);
+  }
+  return <section className="flow-page passes-page">
+    <div className="section-heading"><div><span className="eyebrow muted-eyebrow">VIAJÁ MÁS, PAGÁ MENOS</span><h1>Abonos</h1></div><button className="button button-secondary" onClick={onMine}>Mis abonos</button></div>
+    <p className="muted">Comprá un paquete de viajes para un tramo, válido en los dos sentidos. Cada viaje lo reservás después desde la búsqueda, eligiendo “Usar 1 viaje del abono”. El abono es personal (queda a nombre del DNI de tu cuenta).</p>
+    {error && <Notice kind="error">{error}</Notice>}
+    {loading && <p className="loading-state">Cargando abonos...</p>}
+    {!loading && products.length === 0 && !error && <div className="empty-state"><span>▣</span><h2>Todavía no hay abonos a la venta</h2><p>Las empresas que los habiliten aparecerán acá.</p></div>}
+    {companies.map((company) => <div className="pass-company" key={company.id}>
+      <h2>{company.name}</h2>
+      {company.routes.map((route) => <article className="pass-route" key={route.key}>
+        <h3>{route.title}</h3>
+        <div className="pass-options">{route.options.map((option) => <div className="pass-option" key={option.product_id}>
+          <strong>{option.trips} viajes</strong>
+          <span>{formatPrice(option.price)}</span>
+          <small>{formatPrice(Number(option.price) / option.trips)} por viaje · {option.valid_days} días</small>
+          <button className="button button-primary" disabled={Boolean(busyId)} onClick={() => void buy(option.product_id)}>{busyId === option.product_id ? 'Abriendo...' : 'Comprar'}</button>
+        </div>)}</div>
+      </article>)}
+    </div>)}
   </section>;
 }
 
