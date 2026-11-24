@@ -433,9 +433,11 @@ h1, h2, h3, p { margin-top: 0; }
   .ticket-status { padding: 6px 7px; font-size: 8px; }
 }
 
+@page { size: A4; margin: 12mm; }
 @media print {
   body { min-width: auto; background: white; }
-  .topbar, .footer, .mobile-nav, .ticket-actions, .print-button { display: none !important; }
+  /* al imprimir solo salen los pasajes: sin encabezado, sin el bloque de abonos ni avisos */
+  .topbar, .footer, .mobile-nav, .ticket-actions, .print-button, .tickets-page .section-heading, .pass-list, .tickets-page .notice { display: none !important; }
   main { max-width: none; margin: 0; padding: 0; }
   .printable-ticket { width: 100%; max-width: 760px; margin: 0 auto 16px; border: 1px solid #bbb; box-shadow: none; break-inside: avoid; }
 }
