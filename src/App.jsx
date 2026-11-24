@@ -49,7 +49,7 @@ function formatDate(value) {
 
 function formatTime(value) {
   return new Date(value).toLocaleTimeString('es-AR', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires'
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Argentina/Buenos_Aires'
   });
 }
 
@@ -1329,7 +1329,7 @@ function TicketCard({ ticket, onTrack, onChanged }) {
         from: ticket.from_stop, to: ticket.to_stop, receiptNumber: ticket.receipt_number ?? 0,
         salesChannel: ticket.sales_channel === 'counter' ? 'Ventanilla' : 'Web · Punto de venta',
         paymentMethod: paymentLabels[ticket.payment_method] ?? ticket.payment_method ?? '',
-        issueDate: new Date(ticket.issued_at ?? ticket.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Argentina/Buenos_Aires' })
+        issueDate: new Date(ticket.issued_at ?? ticket.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/Argentina/Buenos_Aires' })
       }, {
         company: ticket.company_name, service: ticket.service_code, route: ticket.route_name,
         origin: ticket.route_origin ?? '', destination: ticket.route_destination ?? '',
