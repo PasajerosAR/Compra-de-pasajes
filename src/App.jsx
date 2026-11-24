@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { configured, supabase } from './supabase';
 import { findPlaceByInput, normalizeText, placeLabel } from './places';
 import { seatColumnTemplate } from './seatGrid';
+import { printTicketA4 } from './ticketPrint';
 
 const today = () => {
   const date = new Date();
@@ -1297,7 +1298,7 @@ function TicketsPage({ onTrack }) {
     return () => { active = false; };
   }, [reloadKey]);
   return <section className="flow-page tickets-page">
-    <div className="section-heading"><div><span className="eyebrow muted-eyebrow">TU HISTORIAL</span><h1>Mis pasajes</h1></div><button className="button button-secondary print-button" onClick={() => window.print()} disabled={!tickets.length}>Imprimir / Guardar PDF</button></div>
+    <div className="section-heading"><div><span className="eyebrow muted-eyebrow">TU HISTORIAL</span><h1>Mis pasajes</h1></div></div>
     {error && <Notice kind="error">{error}</Notice>}
     {passes.length > 0 && <div className="pass-list">
       <h2>Mis abonos</h2>
@@ -1316,6 +1317,27 @@ function TicketsPage({ onTrack }) {
 
 function TicketCard({ ticket, onTrack, onChanged }) {
   const [qr, setQr] = useState('');
+  const [printBusy, setPrintBusy] = useState(false);
+  // imprime solo este pasaje, con los mismos datos y el mismo diseño A4 que la ventanilla
+  const printThis = async () => {
+    const paymentLabels = { cash: 'Efectivo', debit: 'Débito', credit: 'Crédito', transfer: 'Transferencia', mp: 'Mercado Pago', pass: 'Abono', complimentary: 'Sin cargo' };
+    setPrintBusy(true);
+    setCancelError('');
+    try {
+      await printTicketA4({
+        qr_code: ticket.qr_code, seat_label: ticket.seat_label, price: ticket.price, passenger_name: ticket.passenger_name, passenger_dni: ticket.passenger_dni,
+        from: ticket.from_stop, to: ticket.to_stop, receiptNumber: ticket.receipt_number ?? 0,
+        salesChannel: ticket.sales_channel === 'counter' ? 'Ventanilla' : 'Web · Punto de venta',
+        paymentMethod: paymentLabels[ticket.payment_method] ?? ticket.payment_method ?? '',
+        issueDate: new Date(ticket.issued_at ?? ticket.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Argentina/Buenos_Aires' })
+      }, {
+        company: ticket.company_name, service: ticket.service_code, route: ticket.route_name,
+        origin: ticket.route_origin ?? '', destination: ticket.route_destination ?? '',
+        date: new Date(`${ticket.service_date}T12:00:00`).toLocaleDateString('es-AR'), departure: formatTime(ticket.scheduled_departure)
+      });
+    } catch (printError) { setCancelError(errorText(printError)); }
+    setPrintBusy(false);
+  };
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const cancelPassTicket = async () => {
@@ -1340,7 +1362,7 @@ function TicketCard({ ticket, onTrack, onChanged }) {
     <div className="ticket-route"><div><span>FECHA Y SALIDA</span><strong>{formatTime(ticket.scheduled_departure)}</strong><small>{formatDate(ticket.service_date)}</small></div><div className="ticket-route-line"><i /><Icon name="arrow" size={19} /><i /></div><div className="ticket-destination"><span>RECORRIDO</span><strong>{ticket.route_name}</strong><small>{ticket.company_name}</small></div></div>
     <div className="ticket-stop-details"><span><small>PARADA DE ASCENSO</small><strong>{ticket.from_stop}</strong></span><span><small>PARADA DE DESCENSO</small><strong>{ticket.to_stop}</strong></span></div>
     <div className="ticket-details"><div className="qr-placeholder">{qr ? <img src={qr} alt={`Código QR del pasaje de servicio ${ticket.service_code}`} /> : <span>Generando QR…</span>}<small>Presentá este código al conductor</small></div><div className="passenger-details"><span>Pasajero</span><strong>{ticket.passenger_name}</strong><span>DNI</span><strong>{ticket.passenger_dni}</strong><span>Correo</span><strong>{ticket.passenger_email}</strong><span>Asiento</span><strong>{ticket.seat_label ?? 'Sin asignar'}</strong><span>Importe</span><strong>{formatPrice(ticket.price)}</strong></div></div>
-    <div className="ticket-actions"><button className="button button-primary" onClick={() => window.print()}><Icon name="ticket" size={17} /> Imprimir / guardar PDF</button>{['scheduled', 'in_progress'].includes(ticket.trip_status) && ticket.ticket_status !== 'cancelled' && <button className="button button-secondary" onClick={() => onTrack(ticket.trip_id)}><Icon name="track" size={17} /> Seguir unidad</button>}{ticket.pass_id && ticket.trip_status === 'scheduled' && ticket.ticket_status === 'valid' && <button className="button button-secondary" disabled={cancelBusy} onClick={() => void cancelPassTicket()}>{cancelBusy ? 'Cancelando...' : 'Cancelar pasaje'}</button>}</div>
+    <div className="ticket-actions"><button className="button button-primary" disabled={ticket.ticket_status === 'cancelled' || printBusy} onClick={() => void printThis()}><Icon name="ticket" size={17} /> {printBusy ? 'Preparando...' : 'Imprimir / guardar PDF'}</button>{['scheduled', 'in_progress'].includes(ticket.trip_status) && ticket.ticket_status !== 'cancelled' && <button className="button button-secondary" onClick={() => onTrack(ticket.trip_id)}><Icon name="track" size={17} /> Seguir unidad</button>}{ticket.pass_id && ticket.trip_status === 'scheduled' && ticket.ticket_status === 'valid' && <button className="button button-secondary" disabled={cancelBusy} onClick={() => void cancelPassTicket()}>{cancelBusy ? 'Cancelando...' : 'Cancelar pasaje'}</button>}</div>
     {cancelError && <Notice kind="error">{cancelError}</Notice>}
   </article>;
 }
