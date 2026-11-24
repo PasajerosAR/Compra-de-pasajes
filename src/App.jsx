@@ -823,6 +823,16 @@ function Pagination({ page, totalPages, onPage, disabled }) {
   </nav>;
 }
 
+// logo de la empresa (o sus iniciales si no cargó uno), igual en el directorio y en abonos
+function CompanyLogo({ name, logoPath }) {
+  const logoUrl = logoPath ? supabase.storage.from('company-logos').getPublicUrl(logoPath).data.publicUrl : '';
+  const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase('es-AR');
+  return <span className="company-card-logo">
+    <span aria-hidden="true">{initials}</span>
+    {logoUrl && <img src={logoUrl} alt={`Logo de ${name}`} loading="lazy" onError={(event) => { event.currentTarget.hidden = true; }} />}
+  </span>;
+}
+
 function CompaniesPage({ companies, loading, error, search, onSearch, onSelect, onCopyLink }) {
   const filteredCompanies = companies.filter((company) =>
     normalizeText(company.company_name).includes(normalizeText(search)));
@@ -841,16 +851,9 @@ function CompaniesPage({ companies, loading, error, search, onSearch, onSelect, 
     {!loading && filteredCompanies.length === 0 && <div className="empty-search"><Icon name="bus" size={24} /><h3>{search ? 'No encontramos esa empresa' : 'Todavía no hay empresas disponibles'}</h3><p>Probá con otro nombre o volvé más tarde.</p></div>}
     <div className="company-directory-grid">
       {filteredCompanies.map((company) => {
-        const logoUrl = company.logo_path
-          ? supabase.storage.from('company-logos').getPublicUrl(company.logo_path).data.publicUrl
-          : '';
-        const initials = company.company_name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase('es-AR');
         return <article className="company-directory-card" key={company.company_id}>
           <button className="company-card-link" onClick={() => onSelect(company)}>
-            <span className="company-card-logo">
-              <span aria-hidden="true">{initials}</span>
-              {logoUrl && <img src={logoUrl} alt={`Logo de ${company.company_name}`} loading="lazy" onError={(event) => { event.currentTarget.hidden = true; }} />}
-            </span>
+            <CompanyLogo name={company.company_name} logoPath={company.logo_path} />
             <strong>{company.company_name}</strong>
             <span>Ver sus pasajes <Icon name="arrow" size={15} /></span>
           </button>
@@ -1081,6 +1084,10 @@ function PassesPage({ onBuy, onMine }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState('');
+  const [companySearch, setCompanySearch] = useState('');
+  const [placeSearch, setPlaceSearch] = useState('');
+  const [companyId, setCompanyId] = useState('');
+  const [routeKey, setRouteKey] = useState('');
   useEffect(() => {
     let active = true;
     void supabase.rpc('passenger_pass_catalog').then(({ data, error: resultError }) => {
@@ -1097,34 +1104,85 @@ function PassesPage({ onBuy, onMine }) {
     setBusyId('');
     if (message) setError(message);
   };
-  // empresa → tramo (con clase de asiento) → opciones de cantidad
+  // el tramo es el mismo en ambos sentidos: se agrupa por el par de localidades
+  const routeOf = (product) => [product.place_a_name, product.place_b_name].sort((a, b) => a.localeCompare(b, 'es')).join(' ↔ ');
+  const matchesPlace = (product) => !normalizeText(placeSearch)
+    || normalizeText(`${product.place_a_name} ${product.place_b_name}`).includes(normalizeText(placeSearch));
+  const placeProducts = products.filter(matchesPlace);
   const companies = [];
-  for (const product of products) {
-    let company = companies.find((item) => item.id === product.company_id);
-    if (!company) { company = { id: product.company_id, name: product.company_name, routes: [] }; companies.push(company); }
-    const key = `${product.place_a_name}|${product.place_b_name}|${product.seat_class ?? ''}`;
-    let route = company.routes.find((item) => item.key === key);
-    if (!route) { route = { key, title: `${product.place_a_name} ↔ ${product.place_b_name}${product.seat_class ? ` · ${product.seat_class}` : ''}`, options: [] }; company.routes.push(route); }
+  for (const product of placeProducts) {
+    if (!companies.some((item) => item.id === product.company_id)) {
+      companies.push({ id: product.company_id, name: product.company_name, logo: product.logo_path });
+    }
+  }
+  const visibleCompanies = companies.filter((company) => normalizeText(company.name).includes(normalizeText(companySearch)));
+  const company = companyId ? companies.find((item) => item.id === companyId) ?? products.filter((p) => p.company_id === companyId).map((p) => ({ id: p.company_id, name: p.company_name, logo: p.logo_path }))[0] : null;
+  const companyProducts = placeProducts.filter((product) => product.company_id === companyId);
+  const routes = [];
+  for (const product of companyProducts) {
+    const key = routeOf(product);
+    let route = routes.find((item) => item.key === key);
+    if (!route) { route = { key, options: [] }; routes.push(route); }
     route.options.push(product);
   }
+  const route = routes.find((item) => item.key === routeKey);
+  const fromPrice = (options) => Math.min(...options.map((option) => Number(option.price) / option.trips));
+  const classes = route ? [...new Set(route.options.map((option) => option.seat_class ?? ''))] : [];
+  const back = () => { setError(''); if (routeKey) setRouteKey(''); else { setCompanyId(''); setPlaceSearch(''); } };
+  const placeFilter = <label className="company-search">
+    <Icon name="pin" size={18} />
+    <input type="search" value={placeSearch} onChange={(event) => setPlaceSearch(event.target.value)} placeholder="Filtrar por origen o destino..." aria-label="Filtrar por origen o destino" />
+  </label>;
+
   return <section className="flow-page passes-page">
-    <div className="section-heading"><div><span className="eyebrow muted-eyebrow">VIAJÁ MÁS, PAGÁ MENOS</span><h1>Abonos</h1></div><button className="button button-secondary" onClick={onMine}>Mis abonos</button></div>
-    <p className="muted">Comprá un paquete de viajes para un tramo, válido en los dos sentidos. Cada viaje lo reservás después desde la búsqueda, eligiendo “Usar 1 viaje del abono”. El abono es personal (queda a nombre del DNI de tu cuenta).</p>
+    <div className="section-heading"><div><span className="eyebrow muted-eyebrow">VIAJÁ MÁS, PAGÁ MENOS</span><h1>{company ? company.name : 'Abonos'}</h1></div><button className="button button-secondary" onClick={onMine}>Mis abonos</button></div>
+    {companyId && <button className="back-button" onClick={back}><Icon name="back" size={18} /> {routeKey ? `Volver a los tramos de ${company?.name ?? ''}` : 'Volver a las empresas'}</button>}
+    {!companyId && <p className="muted">Elegí una empresa y el tramo que hacés seguido. Cada abono es un paquete de viajes válido en los dos sentidos y queda a nombre del DNI de tu cuenta. Después reservás cada viaje desde la búsqueda con “Usar 1 viaje del abono”.</p>}
     {error && <Notice kind="error">{error}</Notice>}
     {loading && <p className="loading-state">Cargando abonos...</p>}
     {!loading && products.length === 0 && !error && <div className="empty-state"><span>▣</span><h2>Todavía no hay abonos a la venta</h2><p>Las empresas que los habiliten aparecerán acá.</p></div>}
-    {companies.map((company) => <div className="pass-company" key={company.id}>
-      <h2>{company.name}</h2>
-      {company.routes.map((route) => <article className="pass-route" key={route.key}>
-        <h3>{route.title}</h3>
-        <div className="pass-options">{route.options.map((option) => <div className="pass-option" key={option.product_id}>
+
+    {!loading && products.length > 0 && !companyId && <>
+      <div className="pass-filters">
+        <label className="company-search"><Icon name="search" size={18} /><input type="search" value={companySearch} onChange={(event) => setCompanySearch(event.target.value)} placeholder="Buscar empresa..." aria-label="Buscar empresa" /></label>
+        {placeFilter}
+      </div>
+      {visibleCompanies.length === 0 && <div className="empty-search"><Icon name="bus" size={24} /><h3>No encontramos abonos con ese filtro</h3><p>Probá con otro nombre de empresa o de localidad.</p></div>}
+      <div className="company-directory-grid">
+        {visibleCompanies.map((item) => <article className="company-directory-card" key={item.id}>
+          <button className="company-card-link" onClick={() => { setCompanyId(item.id); setRouteKey(''); }}>
+            <CompanyLogo name={item.name} logoPath={item.logo} />
+            <strong>{item.name}</strong>
+            <span>Ver abonos <Icon name="arrow" size={15} /></span>
+          </button>
+        </article>)}
+      </div>
+    </>}
+
+    {companyId && !routeKey && <>
+      {placeFilter}
+      {routes.length === 0 && <div className="empty-search"><Icon name="pin" size={24} /><h3>No hay abonos para ese origen o destino</h3><p>Probá con otra localidad.</p></div>}
+      <div className="pass-route-grid">
+        {routes.map((item) => <button className="pass-route-card" key={item.key} onClick={() => setRouteKey(item.key)}>
+          <strong>{item.key}</strong>
+          <span>{item.options.length} {item.options.length === 1 ? 'abono' : 'abonos'} · desde {formatPrice(fromPrice(item.options))} por viaje</span>
+          <span className="pass-route-go">Ver abonos <Icon name="arrow" size={15} /></span>
+        </button>)}
+      </div>
+    </>}
+
+    {companyId && route && <div className="pass-company">
+      <h2>{route.key}</h2>
+      {classes.map((seatClass) => <article className="pass-route" key={seatClass || 'all'}>
+        {(classes.length > 1 || seatClass) && <h3>{seatClass || 'Cualquier tipo de asiento'}</h3>}
+        <div className="pass-options">{route.options.filter((option) => (option.seat_class ?? '') === seatClass).map((option) => <div className="pass-option" key={option.product_id}>
           <strong>{option.trips} viajes</strong>
           <span>{formatPrice(option.price)}</span>
           <small>{formatPrice(Number(option.price) / option.trips)} por viaje · {option.valid_days} días</small>
           <button className="button button-primary" disabled={Boolean(busyId)} onClick={() => void buy(option.product_id)}>{busyId === option.product_id ? 'Abriendo...' : 'Comprar'}</button>
         </div>)}</div>
       </article>)}
-    </div>)}
+    </div>}
   </section>;
 }
 
