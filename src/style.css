@@ -168,8 +168,38 @@ h1, h2, h3, p { margin-top: 0; }
 .form-card-heading h2 { margin: 0 0 3px; font-family: "Segoe UI", Arial, sans-serif; font-size: 16px; }
 .form-card-heading p { margin: 0; color: #8997a5; font-size: 11px; }
 .stop-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; padding: 13px; border-radius: 9px; background: #f7fafc; }
-.passenger-form-block + .passenger-form-block { margin-top: 17px; padding-top: 16px; border-top: 1px solid #edf0f3; }
-.passenger-form-block h3 { margin: 0 0 11px; color: #536a7d; font-size: 11px; font-weight: 700; }
+.passenger-form-block { padding: 16px; border: 1px solid #e6edf2; border-radius: 11px; background: #fbfcfd;}
+.passenger-form-block + .passenger-form-block { margin: 14px 0px 14px 0px; padding-top: 16px; border-top: 1px solid #edf0f3;}
+.passenger-form-block h3 { margin-left: 16px; color: #536a7d; font-size: 11px; font-weight: 700; }
+.passenger-form-block p { margin-left: 16px; color: #7d8c99; font-size: 12px; }
+.passenger-form-block button {font-size: 13px; font-weight: 700; }
+
+.passenger-form-block.pass-pay {
+  padding: 16px;
+  border-radius: 11px;
+/* Centra todos los elementos hijos */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.passenger-form-block.pass-pay .form-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.button-primary.form-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 auto;
+  width: fit-content;
+}
+
 .passenger-form-hint { margin: 10px 0; font-size: 11px; }
 .profile-edit-hint { margin: 10px 0 0; font-size: 10px; }
 .form-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -184,7 +214,7 @@ h1, h2, h3, p { margin-top: 0; }
 .demo-callout > svg { flex: 0 0 auto; color: #6289a1; }
 .demo-callout p { margin: 0; font-size: 10px; line-height: 1.6; }
 .demo-callout strong { color: #445e73; }
-.form-submit { width: 100%; margin-top: 17px; }
+.form-submit { width: 50%; margin-top: 17px;}
 .summary-card { position: sticky; top: 20px; padding: 21px; }
 .summary-card h2 { display: flex; align-items: center; gap: 7px; margin: 12px 0 5px; font-family: "Segoe UI", Arial, sans-serif; font-size: 17px; letter-spacing: -.4px; }
 .summary-card h2 svg { color: var(--blue); }
