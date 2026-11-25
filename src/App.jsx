@@ -41,6 +41,12 @@ function formatLongDate(value) {
     .format(new Date(value));
 }
 
+// Fecha real de salida (un servicio nocturno sale 00:45 ya en el día siguiente al del servicio)
+function departureDay(row) {
+  if (!row?.scheduled_departure) return row?.service_date;
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date(row.scheduled_departure));
+}
+
 function formatDate(value) {
   if (!value) return '';
   return new Intl.DateTimeFormat('es-AR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
@@ -870,8 +876,8 @@ function TripCard({ trip, onChoose, onTrack }) {
     <div className="company-avatar blue"><Icon name="bus" size={19} /></div>
     <div className="trip-main">
       <div className="trip-company-row"><div><p className="trip-company">{trip.company_name}<span className="trip-dot">·</span><span className="trip-type">{trip.route_name}</span></p><p className="trip-service">Servicio {trip.service_code}</p></div>{!trip.in_transit && <span className="availability"><span />{trip.available_seats} lugares aprox.</span>}</div>
-      <div className="trip-times"><div className="time-stop"><strong>{formatTime(trip.scheduled_departure)}</strong><span>{trip.from_stop_name}</span></div><div className="trip-duration"><span>{formatDate(trip.service_date)}</span><div><i /><span>Salida</span><i /></div></div><div className="time-stop align-right"><strong>{trip.to_stop_name}</strong><span>Destino</span></div></div>
-      <div className="amenities"><span><Icon name="pin" size={14} />{trip.route_name}</span><span><Icon name="calendar" size={14} />{formatDate(trip.service_date)}</span></div>
+      <div className="trip-times"><div className="time-stop"><strong>{formatTime(trip.scheduled_departure)}</strong><span>{trip.from_stop_name}</span></div><div className="trip-duration"><span>{formatDate(departureDay(trip))}</span><div><i /><span>Salida</span><i /></div></div><div className="time-stop align-right"><strong>{trip.to_stop_name}</strong><span>Destino</span></div></div>
+      <div className="amenities"><span><Icon name="pin" size={14} />{trip.route_name}</span><span><Icon name="calendar" size={14} />{formatDate(departureDay(trip))}</span></div>
     </div>
     <div className="trip-price"><span className="price-label">Desde</span><strong>{formatPrice(trip.price)}</strong><div className="trip-actions">{trip.in_transit
           ? <span className="trip-in-transit">En viaje</span>
@@ -957,7 +963,7 @@ function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, 
     {error && <Notice kind="error">{error}</Notice>}
     <div className="checkout-grid">
       <div className="form-card">
-        <div className="form-card-heading"><span className="step-number">1</span><div><h2>{trip.company_name} · Servicio {trip.service_code}</h2><p>{formatDate(trip.service_date)} · Sale {formatTime(trip.scheduled_departure)}</p></div></div>
+        <div className="form-card-heading"><span className="step-number">1</span><div><h2>{trip.company_name} · Servicio {trip.service_code}</h2><p>{formatDate(departureDay(trip))} · Sale {formatTime(trip.scheduled_departure)}</p></div></div>
         {stopsBusy ? <p className="loading-state">Cargando paradas...</p> : <>
           <div className="stop-fields">
             <label className="input-field"><span>Parada de ascenso</span><select value={boardingStop} onChange={(event) => {
@@ -1018,7 +1024,7 @@ function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, 
           {paymentBusy ? 'Preparando el pago...' : session ? 'Continuar al pago de prueba' : 'Ingresar para continuar'} <Icon name="arrow" size={17} />
         </button>
       </div>
-      <aside className="summary-card"><span className="eyebrow muted-eyebrow">RESUMEN</span><h2>{trip.origin_place_name} <Icon name="arrow" size={17} /> {trip.destination_place_name}</h2><p className="summary-date"><Icon name="calendar" size={16} />{formatDate(trip.service_date)}</p><div className="summary-divider" /><div className="summary-company"><span className="company-avatar blue"><Icon name="bus" size={18} /></span><span><strong>{trip.company_name}</strong><small>Servicio {trip.service_code}</small></span></div><div className="summary-stops"><span><small>Subís en</small><strong>{selectedPlace(boardingStop)?.stop_name ?? '—'}</strong></span><span><small>Bajás en</small><strong>{selectedPlace(alightingStop)?.stop_name ?? '—'}</strong></span></div>{selectedSeats.length > 0 && <div className="summary-selected-seats">{selectedSeats.map((seat) => <span key={seat.cell_id}>Asiento {seat.seat_label} · {seatClassNames[seat.seat_class] ?? seat.seat_class ?? 'Estándar'} · {formatPrice(seat.price)}</span>)}</div>}<div className="summary-total"><span>Total estimado</span><strong>{selectedSeats.length === passengerCount ? formatPrice(total) : 'Elegí tus asientos'}</strong></div><small className="summary-caption">La selección no queda reservada.</small></aside>
+      <aside className="summary-card"><span className="eyebrow muted-eyebrow">RESUMEN</span><h2>{trip.origin_place_name} <Icon name="arrow" size={17} /> {trip.destination_place_name}</h2><p className="summary-date"><Icon name="calendar" size={16} />{formatDate(departureDay(trip))}</p><div className="summary-divider" /><div className="summary-company"><span className="company-avatar blue"><Icon name="bus" size={18} /></span><span><strong>{trip.company_name}</strong><small>Servicio {trip.service_code}</small></span></div><div className="summary-stops"><span><small>Subís en</small><strong>{selectedPlace(boardingStop)?.stop_name ?? '—'}</strong></span><span><small>Bajás en</small><strong>{selectedPlace(alightingStop)?.stop_name ?? '—'}</strong></span></div>{selectedSeats.length > 0 && <div className="summary-selected-seats">{selectedSeats.map((seat) => <span key={seat.cell_id}>Asiento {seat.seat_label} · {seatClassNames[seat.seat_class] ?? seat.seat_class ?? 'Estándar'} · {formatPrice(seat.price)}</span>)}</div>}<div className="summary-total"><span>Total estimado</span><strong>{selectedSeats.length === passengerCount ? formatPrice(total) : 'Elegí tus asientos'}</strong></div><small className="summary-caption">La selección no queda reservada.</small></aside>
     </div>
   </section>;
 }
@@ -1333,7 +1339,7 @@ function TicketCard({ ticket, onTrack, onChanged }) {
       }, {
         company: ticket.company_name, service: ticket.service_code, route: ticket.route_name,
         origin: ticket.route_origin ?? '', destination: ticket.route_destination ?? '',
-        date: new Date(`${ticket.service_date}T12:00:00`).toLocaleDateString('es-AR'), departure: formatTime(ticket.scheduled_departure)
+        date: new Date(`${departureDay(ticket)}T12:00:00`).toLocaleDateString('es-AR'), departure: formatTime(ticket.scheduled_departure)
       });
     } catch (printError) { setCancelError(errorText(printError)); }
     setPrintBusy(false);
@@ -1359,7 +1365,7 @@ function TicketCard({ ticket, onTrack, onChanged }) {
   const statusLabel = ticket.ticket_status === 'cancelled' ? 'Cancelado' : ticket.ticket_status === 'boarded' ? 'Abordado' : 'Válido';
   return <article className="ticket-card printable-ticket">
     <div className="ticket-top"><div><span className="eyebrow muted-eyebrow">{ticket.company_name} · Servicio {ticket.service_code}</span><h2>{ticket.from_stop} <span aria-hidden="true">→</span> {ticket.to_stop}</h2></div><span className={`ticket-status ${ticket.ticket_status === 'cancelled' ? 'cancelled-status' : ''}`}><span />{statusLabel}</span></div>
-    <div className="ticket-route"><div><span>FECHA Y SALIDA</span><strong>{formatTime(ticket.scheduled_departure)}</strong><small>{formatDate(ticket.service_date)}</small></div><div className="ticket-route-line"><i /><Icon name="arrow" size={19} /><i /></div><div className="ticket-destination"><span>RECORRIDO</span><strong>{ticket.route_name}</strong><small>{ticket.company_name}</small></div></div>
+    <div className="ticket-route"><div><span>FECHA Y SALIDA</span><strong>{formatTime(ticket.scheduled_departure)}</strong><small>{formatDate(departureDay(ticket))}</small></div><div className="ticket-route-line"><i /><Icon name="arrow" size={19} /><i /></div><div className="ticket-destination"><span>RECORRIDO</span><strong>{ticket.route_name}</strong><small>{ticket.company_name}</small></div></div>
     <div className="ticket-stop-details"><span><small>PARADA DE ASCENSO</small><strong>{ticket.from_stop}</strong></span><span><small>PARADA DE DESCENSO</small><strong>{ticket.to_stop}</strong></span></div>
     <div className="ticket-details"><div className="qr-placeholder">{qr ? <img src={qr} alt={`Código QR del pasaje de servicio ${ticket.service_code}`} /> : <span>Generando QR…</span>}<small>Presentá este código al conductor</small></div><div className="passenger-details"><span>Pasajero</span><strong>{ticket.passenger_name}</strong><span>DNI</span><strong>{ticket.passenger_dni}</strong><span>Correo</span><strong>{ticket.passenger_email}</strong><span>Asiento</span><strong>{ticket.seat_label ?? 'Sin asignar'}</strong><span>Importe</span><strong>{formatPrice(ticket.price)}</strong></div></div>
     <div className="ticket-actions"><button className="button button-primary" disabled={ticket.ticket_status === 'cancelled' || printBusy} onClick={() => void printThis()}><Icon name="ticket" size={17} /> {printBusy ? 'Preparando...' : 'Imprimir / guardar PDF'}</button>{['scheduled', 'in_progress'].includes(ticket.trip_status) && ticket.ticket_status !== 'cancelled' && <button className="button button-secondary" onClick={() => onTrack(ticket.trip_id)}><Icon name="track" size={17} /> Seguir unidad</button>}{ticket.pass_id && ticket.trip_status === 'scheduled' && ticket.ticket_status === 'valid' && <button className="button button-secondary" disabled={cancelBusy} onClick={() => void cancelPassTicket()}>{cancelBusy ? 'Cancelando...' : 'Cancelar pasaje'}</button>}</div>
