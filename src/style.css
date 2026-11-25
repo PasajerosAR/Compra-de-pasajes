@@ -304,7 +304,7 @@ h1, h2, h3, p { margin-top: 0; }
 .passenger-details strong { overflow-wrap: anywhere; color: #354a5c; font-size: 11px; }
 .ticket-security { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding: 11px; color: #61798b; border-radius: 8px; background: #f5f9fb; font-size: 10px; line-height: 1.45; }
 .ticket-security svg { flex: 0 0 auto; color: #52839c; }
-.ticket-actions { display: flex; gap: 10px; margin-top: 16px;}
+.ticket-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
 .ticket-actions .button { min-height: 40px; font-size: 11px; }
 .ticket-email-status { margin-top: 12px; }
 .tracking-card { max-width: 730px; margin-top: 18px; padding: 20px; }
@@ -442,7 +442,7 @@ h1, h2, h3, p { margin-top: 0; }
   .ticket-stop-details strong { font-size: 9px; }
   .ticket-details { gap: 12px; }
   .qr-placeholder { width: 100px; height: 108px; }
-  .passenger-details { gap: 6px 12px; }
+  .passenger-details { gap: 6px 12px; grid-template-columns: minmax(60px, 0.05fr) minmax(0, 1fr); }
   .passenger-details strong { font-size: 10px;}
   .ticket-actions { flex-direction: column; }
   .ticket-actions .button { width: 100%; }
