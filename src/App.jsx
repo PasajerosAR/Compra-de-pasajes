@@ -26,6 +26,13 @@ const seatClassNames = {
   cama_premium: 'Cama premium'
 };
 
+const PASS_DAY_NAMES = { weekday: 'días hábiles', saturday: 'sábados', sunday: 'domingos', holiday: 'feriados' };
+// Para qué días vale un abono ("todos los días" si vale los cuatro tipos)
+function passDaysText(days) {
+  const list = ['weekday', 'saturday', 'sunday', 'holiday'].filter((day) => (days ?? []).includes(day));
+  return list.length === 0 || list.length === 4 ? 'Todos los días' : `Solo ${list.map((day) => PASS_DAY_NAMES[day]).join(', ')}`;
+}
+
 function formatPrice(value) {
   if (value == null) return 'Consultar';
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(Number(value));
@@ -892,6 +899,13 @@ function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, 
   const [profileLoadError, setProfileLoadError] = useState('');
   const [myPasses, setMyPasses] = useState([]);
   const [passId, setPassId] = useState('');
+  const [tripDayType, setTripDayType] = useState('');
+  useEffect(() => {
+    let active = true;
+    setTripDayType('');
+    void supabase.rpc('trip_day_type', { p_trip: trip.trip_id }).then(({ data }) => { if (active && data) setTripDayType(data); });
+    return () => { active = false; };
+  }, [trip.trip_id]);
   useEffect(() => {
     if (!session?.user?.id) { setMyPasses([]); return undefined; }
     let active = true;
@@ -950,6 +964,7 @@ function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, 
       && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(passenger.passenger_email.trim()));
   // abonos que sirven para este viaje: misma empresa, mismo par de localidades (en cualquier sentido), con viajes y sin vencer
   const usablePasses = myPasses.filter((pass) => pass.usable && pass.company_name === trip.company_name
+    && (!tripDayType || (pass.day_types ?? []).includes(tripDayType))
     && ((pass.place_a === trip.origin_place_id && pass.place_b === trip.destination_place_id)
       || (pass.place_b === trip.origin_place_id && pass.place_a === trip.destination_place_id)));
   const chosenPass = usablePasses.find((pass) => pass.pass_id === passId) ?? usablePasses[0];
@@ -1185,7 +1200,7 @@ function PassesPage({ onBuy, onMine }) {
         <div className="pass-options">{route.options.filter((option) => (option.seat_class ?? '') === seatClass).map((option) => <div className="pass-option" key={option.product_id}>
           <strong>{option.trips} viajes</strong>
           <span>{formatPrice(option.price)}</span>
-          <small>{formatPrice(Number(option.price) / option.trips)} por viaje · {option.valid_days} días</small>
+          <small>{formatPrice(Number(option.price) / option.trips)} por viaje · {option.valid_days} días · {passDaysText(option.day_types)}</small>
           <button className="button button-primary" disabled={Boolean(busyId)} onClick={() => void buy(option.product_id)}>{busyId === option.product_id ? 'Abriendo...' : 'Comprar'}</button>
         </div>)}</div>
       </article>)}
@@ -1309,7 +1324,7 @@ function TicketsPage({ onTrack }) {
     {passes.length > 0 && <div className="pass-list">
       <h2>Mis abonos</h2>
       {passes.map((pass) => <article className="pass-card" key={pass.pass_id}>
-        <div><span className="eyebrow muted-eyebrow">{pass.company_name}</span><h3>{pass.place_a_name} ↔ {pass.place_b_name}{pass.seat_class ? ` · ${pass.seat_class}` : ''}</h3></div>
+        <div><span className="eyebrow muted-eyebrow">{pass.company_name}</span><h3>{pass.place_a_name} ↔ {pass.place_b_name}{pass.seat_class ? ` · ${pass.seat_class}` : ''}</h3><small>Vale: {passDaysText(pass.day_types).toLowerCase()}</small></div>
         <div className="pass-count"><strong>{pass.trips_left}</strong><span>de {pass.trips_total} viajes</span></div>
         <small>{pass.status === 'cancelled' ? 'Dado de baja' : pass.expires_at <= new Date().toISOString() ? `Venció el ${formatDate(pass.expires_at)}` : pass.trips_left === 0 ? 'Sin viajes disponibles' : `Vence el ${formatDate(pass.expires_at)}`}</small>
       </article>)}
