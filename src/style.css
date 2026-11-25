@@ -434,8 +434,8 @@ h1, h2, h3, p { margin-top: 0; }
   .ticket-top h2 { font-size: 20px; }
   .ticket-route { gap: 8px; padding: 13px 10px; }
   .ticket-route strong { font-size: 19px; }
-  .ticket-route > div > span { font-size: 9px; }
-  .ticket-route small { font-size: 9px; }
+  .ticket-route > div > span { font-size: 12px; }
+  .ticket-route small { font-size: 13px; }
   .ticket-route-line { gap: 3px; }
   .ticket-route-line svg { width: 16px; }
   .ticket-stop-details { gap: 7px; padding: 10px; }
@@ -443,7 +443,7 @@ h1, h2, h3, p { margin-top: 0; }
   .ticket-details { gap: 12px; }
   .qr-placeholder { width: 100px; height: 108px; }
   .passenger-details { gap: 6px 12px; }
-  .passenger-details strong { font-size: 10px; }
+  .passenger-details strong { font-size: 12px; }
   .ticket-actions { flex-direction: column; }
   .ticket-actions .button { width: 100%; }
 }
