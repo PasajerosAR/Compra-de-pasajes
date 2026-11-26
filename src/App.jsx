@@ -33,6 +33,23 @@ function passDaysText(days) {
   return list.length === 0 || list.length === 4 ? 'Todos los días' : `Solo ${list.map((day) => PASS_DAY_NAMES[day]).join(', ')}`;
 }
 
+// Origen/destino con sugerencias que ignoran acentos y mayúsculas ("parana" encuentra "Paraná")
+function PlaceInput({ label, value, onChange, places, placeholder, required, disabled }) {
+  const [open, setOpen] = useState(false);
+  const needle = normalizeText(value);
+  const options = places.filter((place) => !needle || normalizeText(placeLabel(place)).includes(needle)).slice(0, 8);
+  const exact = options.length === 1 && normalizeText(placeLabel(options[0])) === needle;
+  return <>
+    <input aria-label={label} value={value} placeholder={placeholder} required={required} disabled={disabled} autoComplete="off"
+      onChange={(event) => { onChange(event.target.value); setOpen(true); }}
+      onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} />
+    {open && !disabled && options.length > 0 && !exact && <ul className="place-suggestions" role="listbox" aria-label={`Sugerencias de ${label.toLowerCase()}`}>
+      {options.map((place) => <li key={place.place_id} role="option" aria-selected="false"
+        onMouseDown={(event) => { event.preventDefault(); onChange(placeLabel(place)); setOpen(false); }}>{placeLabel(place)}</li>)}
+    </ul>}
+  </>;
+}
+
 function formatPrice(value) {
   if (value == null) return 'Consultar';
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(Number(value));
@@ -783,11 +800,9 @@ function SearchResults(props) {
     </section>
     <section className="search-panel" aria-label="Buscar servicios">
       <form className="search-form" onSubmit={onSearch}>
-        <label className="field location-field"><span className="field-label">ORIGEN</span><span className="field-control"><Icon name="pin" size={18} /><input aria-label="Origen" list="origin-place-options" value={originInput} onChange={(event) => onOriginInput(event.target.value)} placeholder="¿Desde dónde salís?" required={!company} disabled={placesLoading} autoComplete="off" /></span></label>
+        <label className="field location-field"><span className="field-label">ORIGEN</span><span className="field-control"><Icon name="pin" size={18} /><PlaceInput label="Origen" value={originInput} onChange={onOriginInput} places={places} placeholder="¿Desde dónde salís?" required={!company} disabled={placesLoading} /></span></label>
         <button className="swap-button" type="button" onClick={swap} aria-label="Intercambiar origen y destino"><Icon name="swap" size={18} /></button>
-        <label className="field location-field"><span className="field-label">DESTINO</span><span className="field-control"><Icon name="pin" size={18} /><input aria-label="Destino" list="destination-place-options" value={destinationInput} onChange={(event) => onDestinationInput(event.target.value)} placeholder="¿A dónde vas?" required={!company} disabled={placesLoading} autoComplete="off" /></span></label>
-        <datalist id="origin-place-options">{places.map((place) => <option key={place.place_id} value={placeLabel(place)} />)}</datalist>
-        <datalist id="destination-place-options">{places.map((place) => <option key={place.place_id} value={placeLabel(place)} />)}</datalist>
+        <label className="field location-field"><span className="field-label">DESTINO</span><span className="field-control"><Icon name="pin" size={18} /><PlaceInput label="Destino" value={destinationInput} onChange={onDestinationInput} places={places} placeholder="¿A dónde vas?" required={!company} disabled={placesLoading} /></span></label>
         <label className="field date-field"><span className="field-label">FECHA DE VIAJE</span><span className="field-control"><Icon name="calendar" size={18} /><input aria-label="Fecha de viaje" type="date" min={TODAY} max={MAX_BOOKING_DATE} value={date} onChange={(event) => onDate(event.target.value)} required={!company} /></span></label>
         <label className="field passenger-field"><span className="field-label">PASAJEROS</span><span className="field-control"><Icon name="user" size={18} /><select aria-label="Cantidad de pasajeros" value={passengerCount} onChange={(event) => onPassengerCount(event.target.value)}>{[1, 2, 3, 4].map((count) => <option key={count} value={count}>{count} {count === 1 ? 'pasajero' : 'pasajeros'}</option>)}</select></span></label>
         <button className="button button-primary search-button" type="submit" disabled={busy || placesLoading}><Icon name="search" size={18} />{busy ? 'Buscando...' : 'Buscar viajes'}</button>
