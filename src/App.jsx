@@ -1023,7 +1023,7 @@ function CheckoutPage({ trip, stops, stopsBusy, seats, seatsBusy, boardingStop, 
         {usablePasses.length > 0 && chosenPass && <div className="passenger-form-block pass-pay">
           <h3>Pagar con tu abono</h3>
           {usablePasses.length > 1 && <label className="input-field"><span>Abono</span><select value={chosenPass.pass_id} onChange={(event) => setPassId(event.target.value)}>{usablePasses.map((pass) => <option key={pass.pass_id} value={pass.pass_id}>{pass.place_a_name} ↔ {pass.place_b_name}{pass.seat_class ? ` · ${pass.seat_class}` : ''} · quedan {pass.trips_left}</option>)}</select></label>}
-          <p className="muted">Te quedan <strong>{chosenPass.trips_left}</strong> de {chosenPass.trips_total} viajes · vence el {formatDate(chosenPass.expires_at)}. Se descuenta 1 viaje por pasaje; si cancelás con 2 horas o más de anticipación, vuelve a tu saldo.</p>
+          <p className="muted">Te quedan <strong>{chosenPass.trips_left}</strong> de {chosenPass.trips_total} viajes · vence el {formatDate(chosenPass.expires_at)}. Se descuenta 1 viaje por pasaje; si cancelás con 24 horas o más de anticipación, vuelve a tu saldo.</p>
           {passengerCount > 1 && <p className="muted">El abono es personal: para usarlo buscá con 1 pasajero.</p>}
           <button className="button button-secondary form-submit" type="button"
             disabled={paymentBusy || passengerCount !== 1 || selectedSeats.length !== 1 || !selectedDestinationIsValid || seatsBusy || stopsBusy}
@@ -1362,8 +1362,8 @@ function TicketCard({ ticket, onTrack, onChanged }) {
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const cancelPassTicket = async () => {
-    const early = new Date(ticket.scheduled_departure).getTime() - Date.now() >= 2 * 3600 * 1000;
-    const warning = early ? 'Se cancela el pasaje y el viaje vuelve a tu abono.' : 'Falta menos de 2 horas para la salida: se cancela el pasaje y el viaje NO vuelve a tu abono.';
+    const early = new Date(ticket.scheduled_departure).getTime() - Date.now() >= 24 * 3600 * 1000;
+    const warning = early ? 'Se cancela el pasaje y el viaje vuelve a tu abono.' : 'Falta menos de 24 horas para la salida: se cancela el pasaje y el viaje no vuelve a tu abono.';
     if (!window.confirm(`${warning} ¿Cancelar?`)) return;
     setCancelBusy(true);
     setCancelError('');
