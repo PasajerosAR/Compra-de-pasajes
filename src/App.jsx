@@ -26,11 +26,25 @@ const seatClassNames = {
   cama_premium: 'Cama premium'
 };
 
-const PASS_DAY_NAMES = { weekday: 'días hábiles', saturday: 'sábados', sunday: 'domingos', holiday: 'feriados' };
-// Para qué días vale un abono ("todos los días" si vale los cuatro tipos)
-function passDaysText(days) {
-  const list = ['weekday', 'saturday', 'sunday', 'holiday'].filter((day) => (days ?? []).includes(day));
-  return list.length === 0 || list.length === 4 ? 'Todos los días' : `Solo ${list.map((day) => PASS_DAY_NAMES[day]).join(', ')}`;
+// Nombres de las franjas horarias de cada empresa (las tarifas y los abonos guardan el código de la franja)
+const fareBandCache = { byCompany: {}, loaded: false };
+const LEGACY_BAND_NAMES = { weekday: 'días hábiles', saturday: 'sábados', sunday: 'domingos', holiday: 'feriados' };
+const humanizeBand = (code) => LEGACY_BAND_NAMES[code] ?? String(code).replace(/-/g, ' ');
+function loadFareBands() {
+  if (fareBandCache.loaded) return Promise.resolve();
+  fareBandCache.loaded = true;
+  return supabase.from('fare_bands').select('company_id,code,name,sort').order('sort').then(({ data }) => {
+    for (const band of data ?? []) (fareBandCache.byCompany[band.company_id] ??= []).push(band);
+  });
+}
+// Para qué franjas vale un abono ("todos los días" si vale en todas las de la empresa)
+function passDaysText(days, companyId) {
+  const own = days ?? [];
+  const bands = fareBandCache.byCompany[companyId] ?? [];
+  const all = bands.length > 0 ? bands.every((band) => own.includes(band.code)) : ['weekday', 'saturday', 'sunday', 'holiday'].every((code) => own.includes(code));
+  if (own.length === 0 || all) return 'Todos los días';
+  const name = (code) => (bands.find((band) => band.code === code)?.name ?? humanizeBand(code)).toLowerCase();
+  return `Solo ${own.map(name).join(', ')}`;
 }
 
 // Origen/destino con sugerencias que ignoran acentos y mayúsculas ("parana" encuentra "Paraná")
@@ -146,6 +160,8 @@ function ConnectedApp() {
   const [places, setPlaces] = useState([]);
   const [placesLoading, setPlacesLoading] = useState(true);
   const [companies, setCompanies] = useState([]);
+  const [, setBandsReady] = useState(false);
+  useEffect(() => { void loadFareBands().then(() => setBandsReady(true)); }, []);
   const [companiesLoading, setCompaniesLoading] = useState(true);
   const [companiesError, setCompaniesError] = useState('');
   const [companySearch, setCompanySearch] = useState('');
@@ -1215,7 +1231,7 @@ function PassesPage({ onBuy, onMine }) {
         <div className="pass-options">{route.options.filter((option) => (option.seat_class ?? '') === seatClass).map((option) => <div className="pass-option" key={option.product_id}>
           <strong>{option.trips} viajes</strong>
           <span>{formatPrice(option.price)}</span>
-          <small>{formatPrice(Number(option.price) / option.trips)} por viaje · {option.valid_days} días · {passDaysText(option.day_types)}</small>
+          <small>{formatPrice(Number(option.price) / option.trips)} por viaje · {option.valid_days} días · {passDaysText(option.day_types, companyId)}</small>
           <button className="button button-primary" disabled={Boolean(busyId)} onClick={() => void buy(option.product_id)}>{busyId === option.product_id ? 'Abriendo...' : 'Comprar'}</button>
         </div>)}</div>
       </article>)}
@@ -1339,7 +1355,7 @@ function TicketsPage({ onTrack }) {
     {passes.length > 0 && <div className="pass-list">
       <h2>Mis abonos</h2>
       {passes.map((pass) => <article className="pass-card" key={pass.pass_id}>
-        <div><span className="eyebrow muted-eyebrow">{pass.company_name}</span><h3>{pass.place_a_name} ↔ {pass.place_b_name}{pass.seat_class ? ` · ${pass.seat_class}` : ''}</h3><small>Vale: {passDaysText(pass.day_types).toLowerCase()}</small></div>
+        <div><span className="eyebrow muted-eyebrow">{pass.company_name}</span><h3>{pass.place_a_name} ↔ {pass.place_b_name}{pass.seat_class ? ` · ${pass.seat_class}` : ''}</h3><small>Vale: {passDaysText(pass.day_types, pass.company_id).toLowerCase()}</small></div>
         <div className="pass-count"><strong>{pass.trips_left}</strong><span>de {pass.trips_total} viajes</span></div>
         <small>{pass.status === 'cancelled' ? 'Dado de baja' : pass.expires_at <= new Date().toISOString() ? `Venció el ${formatDate(pass.expires_at)}` : pass.trips_left === 0 ? 'Sin viajes disponibles' : `Vence el ${formatDate(pass.expires_at)}`}</small>
       </article>)}
